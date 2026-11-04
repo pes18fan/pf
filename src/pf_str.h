@@ -1,6 +1,10 @@
 #ifndef pf_str_h
 #define pf_str_h
 
+#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 201112L)
+#error C11 support required
+#endif
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
