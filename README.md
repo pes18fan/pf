@@ -9,8 +9,20 @@ together at the end, which is the "build step". To run this build step simply
 execute
 
 ```bash
-python3 build.py
+./x build
 ```
+
+## Testing
+
+The test suite uses [greatest.h](https://github.com/silentbicycle/greatest).
+
+To run the tests, execute
+
+```bash
+./x test --rebuild
+```
+
+The `--rebuild` flag can be omitted if you already pre-built the headers.
 
 ## Libraries
 
