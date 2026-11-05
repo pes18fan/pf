@@ -156,7 +156,7 @@ void pf_ap_flag_add(pf_ap *parser, const char *name, const char *short_name,
         ensure(strcmp(name, parser->flags[i]->name) != 0,
                "flag_add: cannot add flag %s twice", name);
 
-        if (short_name != NULL) {
+        if (short_name != NULL && parser->flags[i]->short_name != NULL) {
             ensure(strcmp(short_name, parser->flags[i]->short_name) != 0,
                    "flag_add: cannot add flag with short name %s twice",
                    short_name);
@@ -433,8 +433,8 @@ static int pf_ap_parse_flags(pf_ap *parser, int argc, const char *argv[])
         }
 
         // If we received the help flag just print usage and exit
-        if (strcmp(received_flag->short_name, "--help") == 0 ||
-            (received_flag->short_name &&
+        if (strcmp(received_flag->name, "--help") == 0 ||
+            (received_flag->short_name != NULL &&
              strcmp(received_flag->short_name, "-h") == 0)) {
             pf_ap_print_usage(parser);
             exit(0);
