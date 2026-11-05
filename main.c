@@ -1,9 +1,13 @@
 // Just a showcase
+// Build the headers using `x` then try building and running this!
 #include <stdbool.h>
 #include <stdio.h>
 
 #define PF_STR_IMPLEMENTATION
 #include "pf_str.h"
+
+#define PF_AP_IMPLEMENTATION
+#include "pf_ap.h"
 
 void showcase_pf_str(void)
 {
@@ -26,5 +30,30 @@ void showcase_pf_str(void)
     pf_str_free(s);
 }
 
-int main(void)
-{ showcase_pf_str(); }
+void showcase_pf_ap(int argc, const char *argv[])
+{
+    pf_ap *p = pf_ap_make(NULL, argv[0], "little test", 'n', NULL);
+
+    pf_ap_flag_add(p, "--test", "-t", "just a test", 'n', NULL);
+    pf_ap_flag_add(p, "--test2", "-d", "just another test", 'n', NULL);
+
+    char *a;
+    pf_ap *another = pf_ap_make(p, "hewwo", "another test", 's', &a);
+    pf_ap_flag_add(another, "--heh", "-j", "just another another test", 'n',
+                   NULL);
+
+    int parsed = pf_ap_parse(p, argc, argv);
+    pf_ap_destroy(p);
+
+    if (parsed == -1) {
+        printf("failed to parse args!");
+    } else {
+        printf("got: %s", a);
+    }
+}
+
+int main(int argc, const char *argv[])
+{
+    showcase_pf_str();
+    showcase_pf_ap(argc, argv);
+}
