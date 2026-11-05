@@ -6,15 +6,14 @@
 #define PF_STR_IMPLEMENTATION
 #include "pf_str.h"
 
-#define PF_AP_IMPLEMENTATION
-#include "pf_ap.h"
-
 void showcase_pf_str(void)
 {
+    puts("---- PF_STR ----");
+
     pf_str s = pf_str_new_alloc_formatted("Hello, %s!", "संसार");
     puts(PF_CSTRING(s));
     pf_str_iterator it = pf_str_iterator_new(s);
-    printf("each codepoint:\n");
+    puts("each codepoint:");
     while (!pf_str_iterator_is_done(it)) {
         size_t len;
         pf_rune next = pf_str_iterator_next(&it, &len);
@@ -30,8 +29,13 @@ void showcase_pf_str(void)
     pf_str_free(s);
 }
 
+#define PF_AP_IMPLEMENTATION
+#include "pf_ap.h"
+
 void showcase_pf_ap(int argc, const char *argv[])
 {
+    puts("---- PF_AP ----");
+
     pf_ap *p = pf_ap_make(NULL, argv[0], "little test", 'n', NULL);
 
     pf_ap_flag_add(p, "--test", "-t", "just a test", 'n', NULL);
@@ -46,7 +50,7 @@ void showcase_pf_ap(int argc, const char *argv[])
     pf_ap_destroy(p);
 
     if (parsed == -1) {
-        printf("failed to parse args!");
+        puts("failed to parse args!");
     } else {
         printf("got: %s", a);
     }
