@@ -90,7 +90,7 @@ def test(args: argparse.Namespace):
             capture_output=True,
         )
 
-        test_cmd = [test_bin]
+        test_cmd = [str(test_bin)]
         if args.verbose:
             test_cmd.append("-v")
         result = subprocess.run(test_cmd, check=True, capture_output=True)
