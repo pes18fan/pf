@@ -52,12 +52,12 @@ static int encode_utf8(uint32_t cp, char out[4])
         out[0] = 0xc0 | (cp >> 6);
         out[1] = 0x80 | (cp & 0x3f);
         len = 2;
-    } else if (cp <= 0xd7ff) {
+    } else if (cp <= 0xd7ff || (cp >= 0xe000 && cp <= 0xffff)) {
         out[0] = 0xe0 | (cp >> 12);
         out[1] = 0x80 | ((cp >> 6) & 0x3f);
         out[2] = 0x80 | (cp & 0x3f);
         len = 3;
-    } else if (cp >= 0xe000 && cp <= 0x10ffff) {
+    } else if (cp >= 0x10000 && cp <= 0x10ffff) {
         out[0] = 0xf0 | (cp >> 18);
         out[1] = 0x80 | ((cp >> 12) & 0x3f);
         out[2] = 0x80 | ((cp >> 6) & 0x3f);
