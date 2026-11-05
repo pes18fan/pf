@@ -220,9 +220,8 @@ char _pf_str_index_byte(pf_str str, int idx)
 
 void _pf_strv_print(pf_strv strv)
 {
-    for (size_t i = 0; i < strv.len; i++) {
+    for (size_t i = 0; i < strv.len; i++)
         putchar(strv._s[i]);
-    }
 }
 
 void _pf_str_print(pf_str str)
