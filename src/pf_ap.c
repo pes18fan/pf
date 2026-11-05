@@ -73,7 +73,7 @@ pf_ap *pf_ap_make(pf_ap *parent, const char *name, const char *description,
     // Set some sentinel values for the cases where no argument was read
     switch (kind) {
     case 'i':
-        *((int *) arg_ptr) = -0xdeadbeef;
+        *((int *) arg_ptr) = 0xdeadbeef;
         break;
     case 's':
         *((char **) arg_ptr) = "\0";
