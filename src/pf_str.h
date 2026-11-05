@@ -108,6 +108,9 @@ pf_strv _pf_str_slice(pf_str str, int start, int end);
 pf_strv _pf_strv_trim_left(pf_strv strv, const char *cutset);
 pf_strv _pf_str_trim_left(pf_str str, const char *cutset);
 
+// Create a pf_strv from the given `str` with any bytes that match the ones
+// in `cutset` removed from the left end.
+// `str` can be a pf_str or pf_strv.
 #define pf_str_trim_left(str, cutset)                                        \
     _Generic((str), pf_str: _pf_str_trim_left, pf_strv: _pf_strv_trim_left)( \
         (str), (cutset))
@@ -115,6 +118,9 @@ pf_strv _pf_str_trim_left(pf_str str, const char *cutset);
 pf_strv _pf_strv_trim_right(pf_strv strv, const char *cutset);
 pf_strv _pf_str_trim_right(pf_str str, const char *cutset);
 
+// Create a pf_strv from the given `str` with any bytes that match the ones
+// in `cutset` removed from the right end.
+// `str` can be a pf_str or pf_strv.
 #define pf_str_trim_right(str, cutset)                                         \
     _Generic((str), pf_str: _pf_str_trim_right, pf_strv: _pf_strv_trim_right)( \
         (str), (cutset))
@@ -122,6 +128,9 @@ pf_strv _pf_str_trim_right(pf_str str, const char *cutset);
 pf_strv _pf_strv_trim(pf_strv strv, const char *cutset);
 pf_strv _pf_str_trim(pf_str str, const char *cutset);
 
+// Create a pf_strv from the given `str` with any bytes that match the ones
+// in `cutset` removed from the left and right ends.
+// `str` can be a pf_str or pf_strv.
 #define pf_str_trim(str, cutset)                                         \
     _Generic((str), pf_str: _pf_str_trim, pf_strv: _pf_strv_trim)((str), \
                                                                   (cutset))
