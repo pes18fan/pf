@@ -21,7 +21,7 @@ void showcase_pf_str(void)
 
     pf_strv s2 = PF_STRLIT("Hallo, Welt!");
     bool equal = pf_str_equal(PF_TOVIEW(s), s2);
-    printf("equal? %s", equal ? "yay" : "nay");
+    printf("equal? %s\n", equal ? "yay" : "nay");
 
     pf_str_free(s);
 }
