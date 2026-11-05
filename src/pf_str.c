@@ -2,6 +2,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -83,12 +84,12 @@ pf_strv pf_strv_new_from_buf(char *buf, int len)
     return _pf_strv_new_from_nullterminated_buf(buf, len);
 }
 
-pf_str pf_str_new_alloc(int len)
+pf_str pf_str_new_alloc(size_t len)
 {
     char *buf = malloc(len + 1);  // for null terminator
     if (!buf) {
         fprintf(stderr, "fatal: out of memory!\n");
-        exit(1);
+        abort();
     }
     buf[len] = '\0';
     return (pf_str){
@@ -115,7 +116,7 @@ pf_str pf_str_new_alloc_formatted(const char *fmt, ...)
     if (!buf) {
         va_end(args2);
         fprintf(stderr, "fatal: out of memory!\n");
-        exit(1);
+        abort();
     }
 
     vsnprintf(buf, len + 1, fmt, args2);
@@ -135,11 +136,16 @@ void pf_str_free(pf_str str)
 // TODO: fix use after free when this is called with `b` aliasing `a`
 void _pf_str_grow_with_strv(pf_str *a, pf_strv b)
 {
+    if (a->len > SIZE_MAX - b.len - 1) {
+        fprintf(stderr, "fatal: attempt to grow a pf_str over size limit");
+        exit(1);
+    }
+
     size_t newlen = a->len + b.len;
     char *new = realloc(a->_s, newlen + 1);
     if (!new) {
         fprintf(stderr, "fatal: out of memory!\n");
-        exit(1);
+        abort();
     }
     a->_s = new;
 
@@ -153,11 +159,18 @@ void _pf_str_grow_with_str(pf_str *a, pf_str b)
 
 pf_str _pf_strv_concat(pf_strv a, pf_strv b)
 {
+    if (a.len > SIZE_MAX - b.len - 1) {
+        fprintf(
+            stderr,
+            "fatal: attempt to create a concatenated pf_str over size limit");
+        exit(1);
+    }
+
     size_t len = a.len + b.len;
     char *buf = malloc(len + 1);
     if (!buf) {
         fprintf(stderr, "fatal: out of memory!\n");
-        exit(1);
+        abort();
     }
 
     memcpy(buf, a._s, a.len);
@@ -184,38 +197,38 @@ bool _pf_strv_equal(pf_strv a, pf_strv b)
 bool _pf_str_equal(pf_str a, pf_str b)
 { return _pf_strv_equal(PF_TOVIEW(a), PF_TOVIEW(b)); }
 
-pf_strv _pf_strv_slice(pf_strv strv, int start, int end)
+pf_strv _pf_strv_slice(pf_strv strv, size_t start, size_t end)
 {
     if (start > end) {
         fprintf(stderr,
-                "fatal: starting slice index %d is larger than ending "
-                "index %d\n",
+                "fatal: starting slice index %zu is larger than ending "
+                "index %zu\n",
                 start, end);
         exit(1);
     }
 
-    if (start < 0 || start > strv.len) {
+    if (start > strv.len) {
         fprintf(stderr,
-                "fatal: invalid starting slice index %d for str of length "
+                "fatal: invalid starting slice index %zu for str of length "
                 "%zu\n",
                 start, strv.len);
         exit(1);
     }
 
-    if (end < 0 || end > strv.len) {
+    if (end > strv.len) {
         fprintf(stderr,
-                "fatal: invalid ending slice index %d for str of length %zu\n",
+                "fatal: invalid ending slice index %zu for str of length %zu\n",
                 end, strv.len);
         exit(1);
     }
 
     return (pf_strv){
-        ._s = strv._s + (start * sizeof(char)),
+        ._s = strv._s + start,
         .len = end - start,
     };
 }
 
-pf_strv _pf_str_slice(pf_str str, int start, int end)
+pf_strv _pf_str_slice(pf_str str, size_t start, size_t end)
 { return _pf_strv_slice(PF_TOVIEW(str), start, end); }
 
 static bool is_in_cutset(const char *cutset, char c)
@@ -281,13 +294,8 @@ pf_strv _pf_strv_trim(pf_strv strv, const char *cutset)
 pf_strv _pf_str_trim(pf_str str, const char *cutset)
 { return _pf_strv_trim(PF_TOVIEW(str), cutset); }
 
-pf_rune _pf_strv_index(pf_strv strv, int idx)
+pf_rune _pf_strv_index(pf_strv strv, size_t idx)
 {
-    if (idx < 0) {
-        fprintf(stderr, "fatal: invalid negative index %d for str\n", idx);
-        exit(1);
-    }
-
     const char *p = PF_CSTRING(strv);
     int cps = 0;
     size_t bytes = 0;
@@ -297,23 +305,23 @@ pf_rune _pf_strv_index(pf_strv strv, int idx)
         if (cps == idx)
             return cp;
 
-        p += len * sizeof(char);
+        p += len;
         bytes += len;
         cps += 1;
     }
 
-    fprintf(stderr, "fatal: invalid index %d for str with %d codepoints\n", idx,
-            cps);
+    fprintf(stderr, "fatal: invalid index %zu for str with %d codepoints\n",
+            idx, cps);
     exit(1);
 }
 
-pf_rune _pf_str_index(pf_str str, int idx)
+pf_rune _pf_str_index(pf_str str, size_t idx)
 { return _pf_strv_index(PF_TOVIEW(str), idx); }
 
-char _pf_strv_index_byte(pf_strv strv, int idx)
+char _pf_strv_index_byte(pf_strv strv, size_t idx)
 {
     if (idx < 0 || idx >= strv.len) {
-        fprintf(stderr, "fatal: invalid byte index %d for str of length %zu\n",
+        fprintf(stderr, "fatal: invalid byte index %zu for str of length %zu\n",
                 idx, strv.len);
         exit(1);
     }
@@ -321,7 +329,7 @@ char _pf_strv_index_byte(pf_strv strv, int idx)
     return strv._s[idx];
 }
 
-char _pf_str_index_byte(pf_str str, int idx)
+char _pf_str_index_byte(pf_str str, size_t idx)
 { return _pf_strv_index_byte(PF_TOVIEW(str), idx); }
 
 void _pf_strv_print(pf_strv strv)

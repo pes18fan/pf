@@ -29,10 +29,11 @@ typedef struct {
 // A Unicode codepoint.
 typedef uint32_t pf_rune;
 
-// Returns an ASCII `char` for the given pf_rune if it is in range. Otherwise
+// Returns the ASCII value for the given pf_rune if it is in range. Otherwise
 // it returns -1.
-static inline char PF_RUNETOASCII(pf_rune r)
-{ return r < 128 ? (char) (r & 127) : -1; }
+// If the return value is not -1, it can be safely casted to `char`.
+static inline int PF_RUNETOASCII(pf_rune r)
+{ return r < 128 ? (r & 127) : -1; }
 
 // Get the cstring representation of a pf_str or pf_strv.
 #define PF_CSTRING(str) (str)._s
@@ -58,7 +59,7 @@ pf_strv pf_strv_new_from_buf(char *buf, int len);
 
 // Create a new pf_str of size `len`.
 // Allocates on the heap! Call pf_str_free to free the result.
-pf_str pf_str_new_alloc(int len);
+pf_str pf_str_new_alloc(size_t len);
 
 // Create a new formatted pf_str.
 // Allocates on the heap! Call pf_str_free to free the result.
@@ -93,8 +94,8 @@ bool _pf_str_equal(pf_str a, pf_str b);
 #define pf_str_equal(a, b) \
     _Generic((a), pf_str: _pf_str_equal, pf_strv: _pf_strv_equal)((a), (b))
 
-pf_strv _pf_strv_slice(pf_strv strv, int start, int end);
-pf_strv _pf_str_slice(pf_str str, int start, int end);
+pf_strv _pf_strv_slice(pf_strv strv, size_t start, size_t end);
+pf_strv _pf_str_slice(pf_str str, size_t start, size_t end);
 
 // Given the pf_str or pf_strv `str`, return a pf_strv sliced
 // from index `start` to `end`, exclusive at `end`.
@@ -135,8 +136,8 @@ pf_strv _pf_str_trim(pf_str str, const char *cutset);
     _Generic((str), pf_str: _pf_str_trim, pf_strv: _pf_strv_trim)((str), \
                                                                   (cutset))
 
-pf_rune _pf_strv_index(pf_strv strv, int idx);
-pf_rune _pf_str_index(pf_str str, int idx);
+pf_rune _pf_strv_index(pf_strv strv, size_t idx);
+pf_rune _pf_str_index(pf_str str, size_t idx);
 
 // Index the codepoint `idx` in `str` and return it as a pf_rune.
 // `str` may be a pf_str or pf_strv.
@@ -147,8 +148,8 @@ pf_rune _pf_str_index(pf_str str, int idx);
     _Generic((str), pf_str: _pf_str_index, pf_strv: _pf_strv_index)((str), \
                                                                     (idx))
 
-char _pf_strv_index_byte(pf_strv strv, int idx);
-char _pf_str_index_byte(pf_str str, int idx);
+char _pf_strv_index_byte(pf_strv strv, size_t idx);
+char _pf_str_index_byte(pf_str str, size_t idx);
 
 // Index the byte `idx` in `strv` and return it as a char.
 // `str` may be a pf_str or pf_strv.
