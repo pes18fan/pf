@@ -89,7 +89,12 @@ def test(args: argparse.Namespace):
             check=True,
             capture_output=True,
         )
-        result = subprocess.run([test_bin], check=True, capture_output=True)
+
+        test_cmd = [test_bin]
+        if args.verbose:
+            test_cmd.append("-v")
+        result = subprocess.run(test_cmd, check=True, capture_output=True)
+
         print(result.stdout.decode("utf-8"))
         os.remove(test_bin)
     except subprocess.CalledProcessError as e:
@@ -116,6 +121,12 @@ def main() -> int | None:
         "-r",
         "--rebuild",
         help="Rebuild the headers before testing",
+        action="store_true",
+    )
+    test_p.add_argument(
+        "-v",
+        "--verbose",
+        help="Show verbose output",
         action="store_true",
     )
     test_p.set_defaults(func=test)
