@@ -66,8 +66,12 @@ def test(args: argparse.Namespace):
         build(args)
 
     if not os.path.exists(greatest_src):
+        print("downloading greatest.h...")
         url = "https://raw.githubusercontent.com/silentbicycle/greatest/refs/heads/release/greatest.h"
-        urllib.request.urlretrieve(url, root / "greatest.h")
+        try:
+            urllib.request.urlretrieve(url, root / "greatest.h")
+        except Exception as e:
+            print(f"failed to download greatest.h: {e}")
 
     test_bin = root / "test.bin"
     print("testing...")
