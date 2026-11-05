@@ -9,12 +9,19 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-// A growable string encoded in UTF-8.
+// A string encoded in UTF-8.
 typedef struct {
     char *_s;    // Pointer to the start of the string.
     size_t len;  // Length of the string in bytes.
 } pf_str;
+
+// Get the underlying null terminated string for a pf_str.
+static inline char *PF_CSTRING(pf_str str)
+{ return str._s; }
 
 // A slice, or non-owning view, of a pf_str.
 // It is almost the same struct as pf_str, but defined separately so that there
@@ -26,6 +33,21 @@ typedef struct {
     size_t len;
 } pf_strv;
 
+// From the given pf_strv, get an null-terminated char * allocated on the heap.
+// Remember to call free() on it when you're done!
+static inline char *PF_CSTRING_ALLOC(pf_strv strv)
+{
+    char *buf = malloc(strv.len + 1);
+    if (!buf) {
+        fprintf(stderr, "fatal: out of memory!\n");
+        exit(1);
+    }
+
+    memcpy(buf, strv._s, strv.len);
+    buf[strv.len] = '\0';
+    return buf;
+}
+
 // A Unicode codepoint.
 typedef uint32_t pf_rune;
 
@@ -33,9 +55,6 @@ typedef uint32_t pf_rune;
 // it returns -1.
 static inline char PF_RUNETOASCII(pf_rune r)
 { return r < 128 ? (char) (r & 127) : -1; }
-
-// Get the cstring representation of a pf_str or pf_strv.
-#define PF_CSTRING(str) (str)._s
 
 // Convert a pf_str to a pf_strv.
 static inline pf_strv PF_TOVIEW(pf_str str)
