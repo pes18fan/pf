@@ -66,27 +66,35 @@ def test(args: argparse.Namespace):
         url = "https://raw.githubusercontent.com/silentbicycle/greatest/refs/heads/release/greatest.h"
         urllib.request.urlretrieve(url, root / "greatest.h")
 
-    # do test stuff
     test_bin = root / "test.bin"
+    print("testing...")
     try:
         subprocess.run(
-            ["cc", test_src, "-o", test_bin, "-Wall", "-Wextra"],
+            [
+                "cc",
+                str(test_src),
+                "-o",
+                str(test_bin),
+                "-Wall",
+                "-Wextra",
+                "-fsanitize=address",
+            ],
             check=True,
             capture_output=True,
         )
-        subprocess.run([test_bin], check=True, capture_output=True)
+        result = subprocess.run([test_bin], check=True, capture_output=True)
+        print(result.stdout.decode("utf-8"))
         os.remove(test_bin)
     except subprocess.CalledProcessError as e:
         print(
             textwrap.dedent(f"""
-            command failed: {e.cmd}
+            command failed: {" ".join(e.cmd)}:
+                {e.stderr.decode("utf-8")}
             testing failed with exit status: {e.returncode}
-            stderr:
-                {e.stderr}
             """)
         )
-
-    print("tests passed!")
+    else:
+        print("tests passed!")
 
 
 def main() -> int | None:
