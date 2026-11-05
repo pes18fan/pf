@@ -36,15 +36,19 @@ void showcase_pf_ap(int argc, const char *argv[])
 {
     puts("---- PF_AP ----");
 
-    pf_ap *p = pf_ap_make(NULL, argv[0], "little test", 'n', NULL);
+    pf_ap *p =
+        pf_ap_make(NULL, argv[0], "little test", pf_ap_arg_none, NULL, NULL);
 
-    pf_ap_flag_add(p, "--test", "-t", "just a test", 'n', NULL);
-    pf_ap_flag_add(p, "--test2", "-d", "just another test", 'n', NULL);
+    pf_ap_flag_add(p, "--test", "-t", "just a test", pf_ap_arg_none, NULL,
+                   NULL);
+    pf_ap_flag_add(p, "--test2", "-d", "just another test", pf_ap_arg_none,
+                   NULL, NULL);
 
     char *a;
-    pf_ap *another = pf_ap_make(p, "hewwo", "another test", 's', &a);
-    pf_ap_flag_add(another, "--heh", "-j", "just another another test", 'n',
-                   NULL);
+    pf_ap *another =
+        pf_ap_make(p, "hewwo", "another test", pf_ap_arg_str, &a, "a string");
+    pf_ap_flag_add(another, "--heh", "-j", "just another another test",
+                   pf_ap_arg_none, NULL, NULL);
 
     int parsed = pf_ap_parse(p, argc, argv);
     pf_ap_destroy(p);
