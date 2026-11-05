@@ -134,9 +134,9 @@ pf_rune _pf_str_index(pf_str str, int idx);
 // This is an O(n) operation.
 // If the index is too small or too large, an error message
 // is printed and the program exits.
-#define pf_str_index(str, idx)                                              \
-    _Generic((str), pf_str: _pf_strv_index, pf_strv: _pf_strv_index)((str), \
-                                                                     (idx))
+#define pf_str_index(str, idx)                                             \
+    _Generic((str), pf_str: _pf_str_index, pf_strv: _pf_strv_index)((str), \
+                                                                    (idx))
 
 char _pf_strv_index_byte(pf_strv strv, int idx);
 char _pf_str_index_byte(pf_str str, int idx);
@@ -146,10 +146,9 @@ char _pf_str_index_byte(pf_str str, int idx);
 // This is an O(1) operation.
 // If the index is too small or too large, an error message
 // is printed and the program exits.
-#define pf_str_index_byte(str, idx)  \
-    _Generic((str),                  \
-        pf_str: _pf_strv_index_byte, \
-        pf_strv: _pf_strv_index_byte)((str), (idx))
+#define pf_str_index_byte(str, idx)                                            \
+    _Generic((str), pf_str: _pf_str_index_byte, pf_strv: _pf_strv_index_byte)( \
+        (str), (idx))
 
 void _pf_strv_print(pf_strv strv);
 void _pf_str_print(pf_str str);
@@ -158,7 +157,7 @@ void _pf_str_print(pf_str str);
 // You could print using standard C functions like printf; but pf_str_print
 // handles string slices as well as runes.
 #define pf_str_print(str) \
-    _Generic((str), pf_str: _pf_strv_print, pf_strv: _pf_strv_print)((str))
+    _Generic((str), pf_str: _pf_str_print, pf_strv: _pf_strv_print)((str))
 
 // Decodes and prints a pf_rune.
 void pf_rune_print(pf_rune rune);
