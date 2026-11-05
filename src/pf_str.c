@@ -125,7 +125,12 @@ pf_str pf_str_new_alloc_formatted(const char *fmt, ...)
 }
 
 void pf_str_free(pf_str str)
-{ free(str._s); }
+{
+    if (str._s == NULL)
+        return;
+    free(str._s);
+    str._s = NULL;
+}
 
 void _pf_str_grow_with_strv(pf_str *a, pf_strv b)
 {
