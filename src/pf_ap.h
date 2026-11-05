@@ -1,5 +1,4 @@
-/* pf_ap: Argument parsing library inspired by the Python library of the same
- * name */
+/* pf_ap: Argument parsing library inspired by Python's argparse */
 #ifndef pf_ap_h
 #define pf_ap_h
 
