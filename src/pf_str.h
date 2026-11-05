@@ -56,23 +56,42 @@ pf_strv pf_strv_new_from_buf(char *buf, int len);
 #define PF_STRLIT(lit) \
     _pf_strv_new_from_nullterminated_buf((lit), sizeof((lit)) - 1)
 
-// Create a new pf_str of size `len` by allocating on the heap.
-// When you are done using it, remember to call pf_str_free!
+// Create a new pf_str of size `len`.
+// Allocates on the heap! Call pf_str_free to free the result.
 pf_str pf_str_new_alloc(int len);
 
-// Create a new formatted pf_str by allocating on the heap.
-// When you are done using it, remember to call pf_str_free!
+// Create a new formatted pf_str.
+// Allocates on the heap! Call pf_str_free to free the result.
 pf_str pf_str_new_alloc_formatted(const char *fmt, ...);
 
 // Free a heap-allocated pf_str.
 void pf_str_free(pf_str str);
+
+void _pf_str_grow_with_strv(pf_str *a, pf_strv b);
+void _pf_str_grow_with_str(pf_str *a, pf_str b);
+
+// Grow a pf_str by concatenating another pf_str or pf_strv to it, in-place.
+// Allocates on the heap! Reallocates `a` to fit `b`.
+#define pf_str_grow(a, b)              \
+    _Generic((b),                      \
+        pf_str: _pf_str_grow_with_str, \
+        pf_strv: _pf_str_grow_with_strv)((a), (b))
+
+pf_str _pf_strv_concat(pf_strv a, pf_strv b);
+pf_str _pf_str_concat(pf_str a, pf_str b);
+
+// Concatenate two pf_strs or to pf_strvs with each other to produce a new
+// pf_str.
+// Allocates on the heap! Call pf_str_free to free the result.
+#define pf_str_concat(a, b) \
+    _Generic((a), pf_str: _pf_str_concat, pf_strv: _pf_strv_concat)((a), (b))
 
 bool _pf_strv_equal(pf_strv a, pf_strv b);
 bool _pf_str_equal(pf_str a, pf_str b);
 
 // Determines whether two pf_strs or pf_strvs are equal in content.
 #define pf_str_equal(a, b) \
-    _Generic((a), pf_str: _pf_str_equal, pf_strv: _pf_strv_equal)(a, b)
+    _Generic((a), pf_str: _pf_str_equal, pf_strv: _pf_strv_equal)((a), (b))
 
 pf_strv _pf_strv_slice(pf_strv strv, int start, int end);
 pf_strv _pf_str_slice(pf_str str, int start, int end);
@@ -85,6 +104,27 @@ pf_strv _pf_str_slice(pf_str str, int start, int end);
 #define pf_str_slice(str, start, end)                                 \
     _Generic((str), pf_str: _pf_strv_slice, pf_strv: _pf_strv_slice)( \
         (str), (start), (end))
+
+pf_strv _pf_strv_trim_left(pf_strv strv, const char *cutset);
+pf_strv _pf_str_trim_left(pf_str str, const char *cutset);
+
+#define pf_str_trim_left(str, cutset)                                        \
+    _Generic((str), pf_str: _pf_str_trim_left, pf_strv: _pf_strv_trim_left)( \
+        (str), (cutset))
+
+pf_strv _pf_strv_trim_right(pf_strv strv, const char *cutset);
+pf_strv _pf_str_trim_right(pf_str str, const char *cutset);
+
+#define pf_str_trim_right(str, cutset)                                         \
+    _Generic((str), pf_str: _pf_str_trim_right, pf_strv: _pf_strv_trim_right)( \
+        (str), (cutset))
+
+pf_strv _pf_strv_trim(pf_strv strv, const char *cutset);
+pf_strv _pf_str_trim(pf_str str, const char *cutset);
+
+#define pf_str_trim(str, cutset)                                         \
+    _Generic((str), pf_str: _pf_str_trim, pf_strv: _pf_strv_trim)((str), \
+                                                                  (cutset))
 
 pf_rune _pf_strv_index(pf_strv strv, int idx);
 pf_rune _pf_str_index(pf_str str, int idx);

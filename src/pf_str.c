@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Decode a single codepoint from a UTF-8 encoded string.
 // Returns the codepoint, and stores its byte size in `len`.
@@ -96,9 +97,6 @@ pf_str pf_str_new_alloc(int len)
     };
 }
 
-void pf_str_free(pf_str str)
-{ free(str._s); }
-
 pf_str pf_str_new_alloc_formatted(const char *fmt, ...)
 {
     va_list args, args2;
@@ -125,6 +123,45 @@ pf_str pf_str_new_alloc_formatted(const char *fmt, ...)
 
     return (pf_str){ ._s = buf, .len = len };
 }
+
+void pf_str_free(pf_str str)
+{ free(str._s); }
+
+void _pf_str_grow_with_strv(pf_str *a, pf_strv b)
+{
+    size_t newlen = a->len + b.len;
+    char *new = realloc(a->_s, newlen + 1);
+    if (!new) {
+        fprintf(stderr, "fatal: out of memory!\n");
+        exit(1);
+    }
+    a->_s = new;
+
+    memcpy(a->_s + a->len, b._s, b.len);
+    a->_s[newlen] = '\0';
+    a->len = newlen;
+}
+
+void _pf_str_grow_with_str(pf_str *a, pf_str b)
+{ return _pf_str_grow_with_strv(a, PF_TOVIEW(b)); }
+
+pf_str _pf_strv_concat(pf_strv a, pf_strv b)
+{
+    size_t len = a.len + b.len;
+    char *buf = malloc(len + 1);
+    if (!buf) {
+        fprintf(stderr, "fatal: out of memory!\n");
+        exit(1);
+    }
+
+    memcpy(buf, a._s, a.len);
+    memcpy(buf + a.len, b._s, b.len);
+    buf[len] = '\0';
+    return (pf_str){ ._s = buf, .len = len };
+}
+
+pf_str _pf_str_concat(pf_str a, pf_str b)
+{ return _pf_strv_concat(PF_TOVIEW(a), PF_TOVIEW(b)); }
 
 bool _pf_strv_equal(pf_strv a, pf_strv b)
 {
@@ -174,6 +211,76 @@ pf_strv _pf_strv_slice(pf_strv strv, int start, int end)
 
 pf_strv _pf_str_slice(pf_str str, int start, int end)
 { return _pf_strv_slice(PF_TOVIEW(str), start, end); }
+
+pf_strv _pf_strv_trim_left(pf_strv strv, const char *cutset)
+{
+    size_t i = 0;
+    const char *p = PF_CSTRING(strv);
+    while (*p) {
+        const char *q = cutset;
+        bool do_trim = false;
+        while (*q) {
+            if (*p == *q) {
+                do_trim = true;
+                break;
+            }
+            q++;
+        }
+
+        if (do_trim)
+            p++;
+        else
+            break;
+        i++;
+    }
+
+    return (pf_strv){ ._s = p, .len = strv.len - i };
+}
+
+pf_strv _pf_str_trim_left(pf_str str, const char *cutset)
+{ return _pf_strv_trim_left(PF_TOVIEW(str), cutset); }
+
+pf_strv _pf_strv_trim_right(pf_strv strv, const char *cutset)
+{
+    const char *start = PF_CSTRING(strv);
+    const char *p = PF_CSTRING(strv) + strv.len;
+    if (start == p)
+        return strv;
+
+    size_t len = strv.len;
+    p--;  // step back from null terminator
+    while (start != p) {
+        const char *q = cutset;
+        bool do_trim = false;
+        while (*q) {
+            if (*p == *q) {
+                do_trim = true;
+                break;
+            }
+            q++;
+        }
+
+        if (do_trim)
+            p--;
+        else
+            break;
+        len--;
+    }
+
+    return (pf_strv){ ._s = start, .len = len };
+}
+
+pf_strv _pf_str_trim_right(pf_str str, const char *cutset)
+{ return _pf_strv_trim_right(PF_TOVIEW(str), cutset); }
+
+pf_strv _pf_strv_trim(pf_strv strv, const char *cutset)
+{
+    pf_strv left = _pf_strv_trim_left(strv, cutset);
+    return _pf_strv_trim_right(left, cutset);
+}
+
+pf_strv _pf_str_trim(pf_str str, const char *cutset)
+{ return _pf_strv_trim(PF_TOVIEW(str), cutset); }
 
 pf_rune _pf_strv_index(pf_strv strv, int idx)
 {
