@@ -362,6 +362,7 @@ static int pf_ap_parse_argument_flag(pf_ap_flag *flag, int argc,
     case 'i': {
         const char *arg = argv[0];
         char *endptr;
+        errno = 0;
         long v = strtol(arg, &endptr, 10);
 
         // Overflow/underflow, should just panic here
