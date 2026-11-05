@@ -132,6 +132,7 @@ void pf_str_free(pf_str str)
     str._s = NULL;
 }
 
+// TODO: fix use after free when this is called with `b` aliasing `a`
 void _pf_str_grow_with_strv(pf_str *a, pf_strv b)
 {
     size_t newlen = a->len + b.len;
@@ -148,7 +149,7 @@ void _pf_str_grow_with_strv(pf_str *a, pf_strv b)
 }
 
 void _pf_str_grow_with_str(pf_str *a, pf_str b)
-{ return _pf_str_grow_with_strv(a, PF_TOVIEW(b)); }
+{ _pf_str_grow_with_strv(a, PF_TOVIEW(b)); }
 
 pf_str _pf_strv_concat(pf_strv a, pf_strv b)
 {
@@ -217,29 +218,34 @@ pf_strv _pf_strv_slice(pf_strv strv, int start, int end)
 pf_strv _pf_str_slice(pf_str str, int start, int end)
 { return _pf_strv_slice(PF_TOVIEW(str), start, end); }
 
+static bool is_in_cutset(const char *cutset, char c)
+{
+    const char *p = cutset;
+    while (*p) {
+        if (c == *p) {
+            return true;
+        }
+        p++;
+    }
+    return false;
+}
+
 pf_strv _pf_strv_trim_left(pf_strv strv, const char *cutset)
 {
-    size_t i = 0;
-    const char *p = PF_CSTRING(strv);
-    while (*p) {
-        const char *q = cutset;
-        bool do_trim = false;
-        while (*q) {
-            if (*p == *q) {
-                do_trim = true;
-                break;
-            }
-            q++;
-        }
+    if (strv.len == 0 || (strcmp(cutset, "") == 0))
+        return strv;
 
-        if (do_trim)
-            p++;
-        else
+    pf_strv res = strv;
+    size_t i = 0;
+    while (i < strv.len) {
+        char b = pf_str_index_byte(strv, i);
+        if (!is_in_cutset(cutset, b))
             break;
         i++;
     }
 
-    return (pf_strv){ ._s = p, .len = strv.len - i };
+    res = pf_str_slice(res, i, strv.len);
+    return res;
 }
 
 pf_strv _pf_str_trim_left(pf_str str, const char *cutset)
@@ -247,32 +253,20 @@ pf_strv _pf_str_trim_left(pf_str str, const char *cutset)
 
 pf_strv _pf_strv_trim_right(pf_strv strv, const char *cutset)
 {
-    const char *start = PF_CSTRING(strv);
-    const char *p = PF_CSTRING(strv) + strv.len;
-    if (start == p)
+    if (strv.len == 0 || (strcmp(cutset, "") == 0))
         return strv;
 
-    size_t len = strv.len;
-    p--;  // step back from null terminator
-    while (start != p) {
-        const char *q = cutset;
-        bool do_trim = false;
-        while (*q) {
-            if (*p == *q) {
-                do_trim = true;
-                break;
-            }
-            q++;
-        }
-
-        if (do_trim)
-            p--;
-        else
+    pf_strv res = strv;
+    int i = strv.len - 1;
+    while (i >= 0) {
+        char b = pf_str_index_byte(strv, i);
+        if (!is_in_cutset(cutset, b))
             break;
-        len--;
+        i--;
     }
 
-    return (pf_strv){ ._s = start, .len = len };
+    res = pf_str_slice(res, 0, i + 1);
+    return res;
 }
 
 pf_strv _pf_str_trim_right(pf_str str, const char *cutset)
@@ -364,7 +358,6 @@ pf_str_iterator _pf_str_iterator_new(pf_str str)
 
 pf_rune pf_str_iterator_next(pf_str_iterator *it, size_t *len)
 {
-    pf_strv ret = it->_strv;
     pf_rune cp;
     size_t cplen;
 
