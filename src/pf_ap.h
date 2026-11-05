@@ -9,6 +9,31 @@
 #define MAX_FLAGS 16
 #define MAX_SUBPARSERS 16
 
+typedef enum {
+    pf_ap_arg_int,      // The `int` type.
+    pf_ap_arg_str,      // A `const char *`.
+    pf_ap_arg_boolean,  // A `_Bool`/`bool`, or any integer type.
+    pf_ap_arg_none,     // No argument.
+} pf_ap_arg_kind;
+
+// An argument taken by a flag or subcommand.
+typedef struct {
+    // Value of the argument, it points to a specified storage location by
+    // the user.
+    // Avoid accessing this data directly.
+    void *_value;
+
+    // Description of what the argument is. Can be left NULL to not provide
+    // info about it.
+    const char *description;
+
+    // The type of _arg.
+    // A point about 'boolean': it is similar to 'none' in how it is parsed in
+    // the sense that it doesn't actually read any command line arg for its
+    // value. The presence of the argument is enough for the value to be true.
+    pf_ap_arg_kind kind;
+} pf_ap_arg;
+
 typedef struct {
     // Name of the flag.
     const char *name;
@@ -19,20 +44,8 @@ typedef struct {
     // Description. Can be left NULL to not provide any of it.
     const char *description;
 
-    // Argument taken by the flag, it points to a specified storage location by
-    // the user.
-    // Avoid accessing this data directly.
-    void *_arg;
-
-    // A character representing the type of _arg. It can be one of:
-    //     - 'i': int
-    //     - 's': string (const char *)
-    //     - 'b': boolean (bool or any integer type)
-    //     - 'n': none (no argument at all)
-    // A point about 'b': it is similar to 'n' in how it is parsed in the
-    // sense that it doesn't actually read any command line arg for its value.
-    // The presence of the argument is enough for the value to be true.
-    char arg_kind;
+    // Argument taken by the flag.
+    pf_ap_arg arg;
 } pf_ap_flag;
 
 // Parser for a command. Has a set of its own subparsers.
@@ -52,41 +65,31 @@ typedef struct pf_ap {
     pf_ap_flag *flags[MAX_FLAGS];
     int flag_count;
 
-    // Argument taken by the flag, it points to a specified storage location by
-    // the user.
-    // Avoid accessing this data directly.
-    void *_arg;
-
-    // A character representing the type of _arg. It can be one of:
-    //     - 'i': int
-    //     - 's': string (const char *)
-    //     - 'b': boolean (bool or any integer type)
-    //     - 'n': none (no argument at all)
-    // A point about 'b': it is similar to 'n' in how it is parsed in the
-    // sense that it doesn't actually read any command line arg for its value.
-    // The presence of the argument is enough for the value to be true.
-    char arg_kind;
+    // Argument taken by the subcommand.
+    pf_ap_arg arg;
 } pf_ap;
 
 // Create an argument parser as the subparser of `parent`, with a subcommand
-// name `name`, description `description`, and argument kind `kind`.
+// name `name`, description `description`, argument kind `kind`, and argument
+// description `arg_description`.
 // If the parser is the root parser (has no parents), `parent` must be set
 // to `NULL`.
-// The argument the command takes is provided via `kind` (described in the
-// definition of `struct Argparser`), alongside the storage region for that
-// value provided in `arg_ptr`. If the command takes no argument (`kind` ==
-// 'n'), `arg_ptr` can be set to `NULL`. If the provided parser spec has any
-// issues (e.g. attempt to add a duplicate subcommand, attempt to add a
-// subparser for a parser that takes an argument, addition of too many
-// subparsers), the function prints the error to stderr and exits the program
-// with status 1.
-// `arg_ptr` will be one of these respective values in the case the subcommand
-// is never provided (and thus no argument ever parsed):
+// The argument the command takes is provided via `kind`, alongside the storage
+// region for that value provided in `arg_ptr`.
+// If the command takes no argument (`kind` == 'pf_ap_arg_none'), `arg_ptr` can
+// be set to `NULL`. If the provided parser spec has any issues (e.g. attempt to
+// add a duplicate subcommand, attempt to add a subparser for a parser that
+// takes an argument, addition of too many subparsers), the function prints the
+// error to stderr and exits the program with status 1. `arg_ptr` will be one of
+// these respective values in the case the subcommand is never provided (and
+// thus no argument ever parsed):
 //      - 'i': 0xdeadbeef
 //      - 's': ""
 //      - 'b': false
+// `arg_description` can be set to NULL if it is not desired or applicable.
 pf_ap *pf_ap_make(pf_ap *parent, const char *name, const char *description,
-                  char kind, void *arg_ptr);
+                  pf_ap_arg_kind kind, void *arg_ptr,
+                  const char *arg_description);
 
 // Deallocate an pf_ap.
 // Also deallocates all of its subparsers and flags; hence you should avoid
@@ -95,20 +98,24 @@ void pf_ap_destroy(pf_ap *parent);
 
 // Add a flag to `parser`, with a `name` and optional `short_name` and
 // `description`. The latter two can be left NULL if undesired. The type of the
-// argument the flag takes is provided via `kind` (described in the definition
-// of `pf_ap`), alongside the storage region for that value provided
-// in `arg_ptr`. If the flag takes no argument (`kind` == 'n'), `arg_ptr` can be
+// argument the flag takes is provided via `kind`, alongside the storage region
+// for that value provided in `arg_ptr`.
+// If the flag takes no argument (`kind` == 'pf_ap_arg_none'), `arg_ptr` can be
 // set to `NULL`.
+// `arg_description` is the description for the argument shown in
+// usage messages, it can be set to NULL if not desired or applicable.
 // If the provided flag spec has any issues (e.g. invalid flag name, attempt to
 // add a duplicate flag, addition of too many flags, invalid argument kind), the
 // function prints the error to stderr and exits the program with status 1.
 // `arg_ptr` will be one of these respective values in the case the flag is
 // never provided (and thus no argument ever parsed):
 //      - 'i': 0xdeadbeef
-//      - 's': "\0"
+//      - 's': ""
 //      - 'b': false
+// `arg_description` can be set to NULL if it is not desired or applicable.
 void pf_ap_flag_add(pf_ap *parser, const char *name, const char *short_name,
-                    const char *description, char kind, void *arg_ptr);
+                    const char *description, pf_ap_arg_kind kind, void *arg_ptr,
+                    const char *arg_description);
 
 // Print the usage message for `parser`.
 void pf_ap_print_usage(pf_ap *parser);
