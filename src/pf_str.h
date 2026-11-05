@@ -101,8 +101,8 @@ pf_strv _pf_str_slice(pf_str str, int start, int end);
 // If `start` or `end` is too small or too large in relation to the length
 // of `str`, or if `start` is larger than `end`, an error message
 // is printed and the program exits.
-#define pf_str_slice(str, start, end)                                 \
-    _Generic((str), pf_str: _pf_strv_slice, pf_strv: _pf_strv_slice)( \
+#define pf_str_slice(str, start, end)                                \
+    _Generic((str), pf_str: _pf_str_slice, pf_strv: _pf_strv_slice)( \
         (str), (start), (end))
 
 pf_strv _pf_strv_trim_left(pf_strv strv, const char *cutset);
