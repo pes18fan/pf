@@ -13,6 +13,9 @@
 #define PF_STR_IMPLEMENTATION
 #include "pf_str.h"
 
+#define PF_AP_IMPLEMENTATION
+#include "pf_ap.h"
+
 // Extra testing stuff for testing by running a child process and observing what
 // it outputs
 
@@ -166,6 +169,220 @@ static void child_rune_print_boundaries(void)
     pf_rune_print(0xFFFF);
     pf_rune_print(0x10000);
     pf_rune_print(0x10FFFF);
+}
+
+static void child_ap_make_duplicate_subcommand(void)
+{
+    pf_ap *root = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    (void) pf_ap_make(root, "run", NULL, 'n', NULL);
+    (void) pf_ap_make(root, "run", NULL, 'n', NULL);
+}
+
+static void child_ap_make_subparser_of_arg_parser(void)
+{
+    int value = 0;
+    pf_ap *root = pf_ap_make(NULL, "prog", NULL, 'i', &value);
+    (void) pf_ap_make(root, "run", NULL, 'n', NULL);
+}
+
+static void child_ap_make_invalid_kind(void)
+{
+    (void) pf_ap_make(NULL, "prog", NULL, 'x', NULL);
+}
+
+static void child_ap_flag_add_invalid_name(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "verbose", NULL, NULL, 'n', NULL);
+}
+
+static void child_ap_flag_add_invalid_short_name(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--verbose", "v", NULL, 'n', NULL);
+}
+
+static void child_ap_flag_add_duplicate(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--verbose", NULL, NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--verbose", NULL, NULL, 'n', NULL);
+}
+
+static void child_ap_flag_add_short_after_long_only(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--verbose", NULL, NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--output", "-o", NULL, 'n', NULL);
+    pf_ap_destroy(p);
+}
+
+static void child_ap_parse_long_only_flag(void)
+{
+    bool verbose = false;
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--verbose", NULL, NULL, 'b', &verbose);
+
+    const char *argv[] = {"prog", "--verbose"};
+    int parsed = pf_ap_parse(p, 2, argv);
+    pf_ap_destroy(p);
+    _Exit(parsed == 2 && verbose ? 0 : 1);
+}
+
+static void child_ap_parse_help_long(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", "does things", 'n', NULL);
+    const char *argv[] = {"prog", "--help"};
+    (void) pf_ap_parse(p, 2, argv);
+    pf_ap_destroy(p);
+}
+
+static void child_ap_parse_help_short(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", "does things", 'n', NULL);
+    const char *argv[] = {"prog", "-h"};
+    (void) pf_ap_parse(p, 2, argv);
+    pf_ap_destroy(p);
+}
+
+static void child_ap_parse_no_args(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    const char *argv[] = {NULL};
+    (void) pf_ap_parse(p, 0, argv);
+}
+
+static void child_ap_parse_int_overflow(void)
+{
+    int value = 0;
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'i', &value);
+    const char *argv[] = {"prog", "999999999999999999999"};
+    (void) pf_ap_parse(p, 2, argv);
+}
+
+static void child_ap_print_usage_root(void)
+{
+    bool verbose = false;
+    pf_ap *root = pf_ap_make(NULL, "prog", "does things", 'n', NULL);
+    (void) pf_ap_make(root, "run", "run it", 'n', NULL);
+    pf_ap_flag_add(root, "--verbose", "-v", "be verbose", 'b', &verbose);
+    pf_ap_print_usage(root);
+    pf_ap_destroy(root);
+}
+
+static void child_ap_print_usage_leaf(void)
+{
+    int value = 0;
+    pf_ap *root = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap *leaf = pf_ap_make(root, "leaf", NULL, 'i', &value);
+    pf_ap_print_usage(leaf);
+    pf_ap_destroy(root);
+}
+
+static void child_ap_print_usage_kinds(void)
+{
+    int value_i = 0;
+    const char *value_s = NULL;
+    bool value_b = false;
+
+    pf_ap *pi = pf_ap_make(NULL, "intcmd", NULL, 'i', &value_i);
+    pf_ap_print_usage(pi);
+    pf_ap_destroy(pi);
+
+    pf_ap *ps = pf_ap_make(NULL, "strcmd", NULL, 's', (void *) &value_s);
+    pf_ap_print_usage(ps);
+    pf_ap_destroy(ps);
+
+    pf_ap *pb = pf_ap_make(NULL, "boolcmd", NULL, 'b', &value_b);
+    pf_ap_print_usage(pb);
+    pf_ap_destroy(pb);
+
+    pf_ap *pn = pf_ap_make(NULL, "nonecmd", NULL, 'n', NULL);
+    pf_ap_print_usage(pn);
+    pf_ap_destroy(pn);
+}
+
+static void child_ap_make_too_many_subparsers(void)
+{
+    pf_ap *root = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    char names[MAX_SUBPARSERS + 1][16];
+    for (int i = 0; i <= MAX_SUBPARSERS; i++) {
+        snprintf(names[i], sizeof names[i], "cmd%d", i);
+        (void) pf_ap_make(root, names[i], NULL, 'n', NULL);
+    }
+}
+
+static void child_ap_flag_add_invalid_kind(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--bad", NULL, NULL, 'x', NULL);
+}
+
+static void child_ap_flag_add_duplicate_short(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--first", "-f", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--second", "-f", NULL, 'n', NULL);
+}
+
+static void child_ap_flag_add_too_many(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    char names[MAX_FLAGS][16];
+    for (int i = 0; i < MAX_FLAGS; i++) {
+        snprintf(names[i], sizeof names[i], "--flag%d", i);
+        pf_ap_flag_add(p, names[i], NULL, NULL, 'n', NULL);
+    }
+}
+
+static void child_ap_parse_unknown_flag(void)
+{
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    const char *argv[] = {"prog", "--nope"};
+    int parsed = pf_ap_parse(p, 2, argv);
+    pf_ap_destroy(p);
+    _Exit(parsed == -1 ? 0 : 1);
+}
+
+static void child_ap_parse_unknown_subcommand(void)
+{
+    pf_ap *root = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    (void) pf_ap_make(root, "run", NULL, 'n', NULL);
+    const char *argv[] = {"prog", "nope"};
+    int parsed = pf_ap_parse(root, 2, argv);
+    pf_ap_destroy(root);
+    _Exit(parsed == -1 ? 0 : 1);
+}
+
+static void child_ap_parse_invalid_int(void)
+{
+    int value = 0;
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'i', &value);
+    const char *argv[] = {"prog", "abc"};
+    int parsed = pf_ap_parse(p, 2, argv);
+    pf_ap_destroy(p);
+    _Exit(parsed == -1 ? 0 : 1);
+}
+
+static void child_ap_parse_missing_int(void)
+{
+    int value = 0;
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'i', &value);
+    const char *argv[] = {"prog"};
+    int parsed = pf_ap_parse(p, 1, argv);
+    pf_ap_destroy(p);
+    _Exit(parsed == -1 ? 0 : 1);
+}
+
+static void child_ap_parse_missing_flag_arg(void)
+{
+    int value = 0;
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--count", NULL, NULL, 'i', &value);
+    const char *argv[] = {"prog", "--count"};
+    int parsed = pf_ap_parse(p, 2, argv);
+    pf_ap_destroy(p);
+    _Exit(parsed == -1 ? 0 : 1);
 }
 
 // Tests ----------------------------------------------------------------------
@@ -688,6 +905,340 @@ TEST test_pf_str_iterator_is_done(void)
     PASS();
 }
 
+TEST test_pf_ap_make(void)
+{
+    pf_ap *root = pf_ap_make(NULL, "prog", "does things", 'n', NULL);
+    ASSERT(root != NULL);
+    ASSERT_STR_EQ("prog", root->name);
+    ASSERT_STR_EQ("does things", root->description);
+    ASSERT_EQ(0, root->subparser_count);
+    ASSERT_EQ(1, root->flag_count);
+    ASSERT_EQ('n', root->arg_kind);
+    ASSERT(root->_arg == NULL);
+
+    ASSERT_STR_EQ("--help", root->flags[0]->name);
+    ASSERT_STR_EQ("-h", root->flags[0]->short_name);
+    ASSERT_STR_EQ("Display help message", root->flags[0]->description);
+    ASSERT_EQ('n', root->flags[0]->arg_kind);
+    ASSERT(root->flags[0]->_arg == NULL);
+
+    int value_i = 0;
+    char *value_s = NULL;
+    bool value_b = true;
+    pf_ap *int_cmd =
+        pf_ap_make(root, "intcmd", "int desc", 'i', &value_i);
+    pf_ap *str_cmd = pf_ap_make(root, "strcmd", NULL, 's', &value_s);
+    pf_ap *bool_cmd = pf_ap_make(root, "boolcmd", NULL, 'b', &value_b);
+
+    ASSERT_EQ(3, root->subparser_count);
+    ASSERT(root->subparsers[0] == int_cmd);
+    ASSERT(root->subparsers[1] == str_cmd);
+    ASSERT(root->subparsers[2] == bool_cmd);
+
+    ASSERT_STR_EQ("intcmd", int_cmd->name);
+    ASSERT_STR_EQ("int desc", int_cmd->description);
+    ASSERT_EQ('i', int_cmd->arg_kind);
+    ASSERT(int_cmd->_arg == &value_i);
+    ASSERT_EQ(1, int_cmd->flag_count);
+    ASSERT_EQ(0, int_cmd->subparser_count);
+
+    ASSERT_STR_EQ("strcmd", str_cmd->name);
+    ASSERT(str_cmd->description == NULL);
+    ASSERT_EQ('s', str_cmd->arg_kind);
+    ASSERT(str_cmd->_arg == &value_s);
+
+    ASSERT_STR_EQ("boolcmd", bool_cmd->name);
+    ASSERT_EQ('b', bool_cmd->arg_kind);
+    ASSERT(bool_cmd->_arg == &value_b);
+
+    ASSERT_EQ((int) 0xdeadbeef, value_i);
+    ASSERT_STR_EQ("", value_s);
+    ASSERT_FALSE(value_b);
+
+    pf_ap *unnamed = pf_ap_make(NULL, NULL, NULL, 'n', NULL);
+    ASSERT_STR_EQ("parser", unnamed->name);
+    ASSERT(unnamed->description == NULL);
+    pf_ap_destroy(unnamed);
+
+    pf_ap_destroy(root);
+
+    ASSERT_CHILD_FATAL(child_ap_make_duplicate_subcommand);
+    ASSERT_CHILD_FATAL(child_ap_make_subparser_of_arg_parser);
+    ASSERT_CHILD_FATAL(child_ap_make_invalid_kind);
+    ASSERT_CHILD_FATAL(child_ap_make_too_many_subparsers);
+    PASS();
+}
+
+TEST test_pf_ap_flag_add(void)
+{
+    bool verbose = true;
+    int count = 0;
+    const char *name = "initial";
+
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--verbose", "-v", "be verbose", 'b', &verbose);
+    pf_ap_flag_add(p, "--count", NULL, "how many", 'i', &count);
+    pf_ap_flag_add(p, "--name", "-n", NULL, 's', (void *) &name);
+    pf_ap_flag_add(p, "--dry-run", NULL, NULL, 'n', NULL);
+
+    ASSERT_EQ(5, p->flag_count);
+
+    ASSERT_STR_EQ("--verbose", p->flags[1]->name);
+    ASSERT_STR_EQ("-v", p->flags[1]->short_name);
+    ASSERT_STR_EQ("be verbose", p->flags[1]->description);
+    ASSERT_EQ('b', p->flags[1]->arg_kind);
+    ASSERT(p->flags[1]->_arg == &verbose);
+
+    ASSERT_STR_EQ("--count", p->flags[2]->name);
+    ASSERT(p->flags[2]->short_name == NULL);
+    ASSERT_STR_EQ("how many", p->flags[2]->description);
+    ASSERT_EQ('i', p->flags[2]->arg_kind);
+    ASSERT(p->flags[2]->_arg == &count);
+
+    ASSERT_STR_EQ("--name", p->flags[3]->name);
+    ASSERT_STR_EQ("-n", p->flags[3]->short_name);
+    ASSERT(p->flags[3]->description == NULL);
+    ASSERT_EQ('s', p->flags[3]->arg_kind);
+    ASSERT(p->flags[3]->_arg == &name);
+
+    ASSERT_STR_EQ("--dry-run", p->flags[4]->name);
+    ASSERT(p->flags[4]->short_name == NULL);
+    ASSERT(p->flags[4]->description == NULL);
+    ASSERT_EQ('n', p->flags[4]->arg_kind);
+    ASSERT(p->flags[4]->_arg == NULL);
+
+    ASSERT_FALSE(verbose);
+    ASSERT_EQ((int) 0xdeadbeef, count);
+    ASSERT_STR_EQ("", name);
+
+    pf_ap_destroy(p);
+
+    ASSERT_CHILD_FATAL(child_ap_flag_add_invalid_name);
+    ASSERT_CHILD_FATAL(child_ap_flag_add_invalid_short_name);
+    ASSERT_CHILD_FATAL(child_ap_flag_add_duplicate);
+    ASSERT_CHILD_FATAL(child_ap_flag_add_duplicate_short);
+    ASSERT_CHILD_FATAL(child_ap_flag_add_invalid_kind);
+    ASSERT_CHILD_FATAL(child_ap_flag_add_too_many);
+
+    // Regression: a short flag added after a long-only flag must not crash.
+    child_result regression =
+        run_child(child_ap_flag_add_short_after_long_only);
+    ASSERT_EQ(0, regression.status);
+    PASS();
+}
+
+TEST test_pf_ap_parse(void)
+{
+    // No argument at all.
+    pf_ap *p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    const char *argv_none[] = {"prog"};
+    ASSERT_EQ(1, pf_ap_parse(p, 1, argv_none));
+    pf_ap_destroy(p);
+
+    // String argument.
+    const char *str_value = NULL;
+    p = pf_ap_make(NULL, "prog", NULL, 's', (void *) &str_value);
+    const char *argv_str[] = {"prog", "hello"};
+    ASSERT_EQ(2, pf_ap_parse(p, 2, argv_str));
+    ASSERT(str_value == argv_str[1]);
+    ASSERT_STR_EQ("hello", str_value);
+    pf_ap_destroy(p);
+
+    // Int argument; trailing unrelated arguments are left alone.
+    int int_value = 0;
+    p = pf_ap_make(NULL, "prog", NULL, 'i', &int_value);
+    const char *argv_int[] = {"prog", "42", "ignored"};
+    ASSERT_EQ(2, pf_ap_parse(p, 3, argv_int));
+    ASSERT_EQ(42, int_value);
+    pf_ap_destroy(p);
+
+    // Bool argument is set by the command's presence and consumes no argv.
+    bool bool_value = false;
+    p = pf_ap_make(NULL, "prog", NULL, 'b', &bool_value);
+    const char *argv_bool[] = {"prog"};
+    ASSERT_EQ(1, pf_ap_parse(p, 1, argv_bool));
+    ASSERT(bool_value);
+    pf_ap_destroy(p);
+
+    // Flags of every argument kind, long and short.
+    bool verbose = false;
+    int count = 0;
+    const char *name = "unset";
+    p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap_flag_add(p, "--verbose", "-v", "be verbose", 'b', &verbose);
+    pf_ap_flag_add(p, "--count", NULL, NULL, 'i', &count);
+    pf_ap_flag_add(p, "--name", "-n", NULL, 's', (void *) &name);
+    pf_ap_flag_add(p, "--dry-run", NULL, NULL, 'n', NULL);
+    const char *argv_flags[] = {
+        "prog", "--verbose", "-v", "--count", "7",
+        "--name", "bob", "--dry-run",
+    };
+    ASSERT_EQ(8, pf_ap_parse(p, 8, argv_flags));
+    ASSERT(verbose);
+    ASSERT_EQ(7, count);
+    ASSERT_STR_EQ("bob", name);
+    pf_ap_destroy(p);
+
+    // Flags may appear before and after the parser's own argument.
+    bool verbose_around = false;
+    int number_around = 0;
+    p = pf_ap_make(NULL, "prog", NULL, 'i', &number_around);
+    pf_ap_flag_add(p, "--verbose", "-v", NULL, 'b', &verbose_around);
+    const char *argv_around[] = {"prog", "--verbose", "99", "-v"};
+    ASSERT_EQ(4, pf_ap_parse(p, 4, argv_around));
+    ASSERT(verbose_around);
+    ASSERT_EQ(99, number_around);
+    pf_ap_destroy(p);
+
+    // Root flags before a subcommand, and the subcommand's own argument.
+    bool verbose_sub = false;
+    int level = 0;
+    pf_ap *root = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    (void) pf_ap_make(root, "run", "run it", 'i', &level);
+    pf_ap_flag_add(root, "--verbose", "-v", NULL, 'b', &verbose_sub);
+    const char *argv_sub[] = {"prog", "--verbose", "run", "42"};
+    ASSERT_EQ(4, pf_ap_parse(root, 4, argv_sub));
+    ASSERT(verbose_sub);
+    ASSERT_EQ(42, level);
+    pf_ap_destroy(root);
+
+    // A subcommand's own flags.
+    int sub_level = 0;
+    root = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap *leaf = pf_ap_make(root, "run", NULL, 'n', NULL);
+    pf_ap_flag_add(leaf, "--level", "-l", NULL, 'i', &sub_level);
+    const char *argv_leaf_flag[] = {"prog", "run", "--level", "3"};
+    ASSERT_EQ(4, pf_ap_parse(root, 4, argv_leaf_flag));
+    ASSERT_EQ(3, sub_level);
+    pf_ap_destroy(root);
+
+    // Nested subcommands.
+    int depth = 0;
+    root = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    pf_ap *mid = pf_ap_make(root, "mid", NULL, 'n', NULL);
+    (void) pf_ap_make(mid, "leaf", NULL, 'i', &depth);
+    const char *argv_nested[] = {"prog", "mid", "leaf", "9"};
+    ASSERT_EQ(4, pf_ap_parse(root, 4, argv_nested));
+    ASSERT_EQ(9, depth);
+    pf_ap_destroy(root);
+
+    // Unconsumed trailing arguments do not affect the return count.
+    p = pf_ap_make(NULL, "prog", NULL, 'n', NULL);
+    const char *argv_trailing[] = {"prog", "extra"};
+    ASSERT_EQ(1, pf_ap_parse(p, 2, argv_trailing));
+    pf_ap_destroy(p);
+
+    // Error paths return -1 and must not crash.
+    child_result res = run_child(child_ap_parse_unknown_flag);
+    ASSERT_EQ(0, res.status);
+    res = run_child(child_ap_parse_unknown_subcommand);
+    ASSERT_EQ(0, res.status);
+    res = run_child(child_ap_parse_invalid_int);
+    ASSERT_EQ(0, res.status);
+    res = run_child(child_ap_parse_missing_int);
+    ASSERT_EQ(0, res.status);
+    res = run_child(child_ap_parse_missing_flag_arg);
+    ASSERT_EQ(0, res.status);
+
+    // Regression: parsing a long-only flag must not crash.
+    res = run_child(child_ap_parse_long_only_flag);
+    ASSERT_EQ(0, res.status);
+
+    // --help and -h print the usage message and exit successfully.
+    static const char help_output[] =
+        "prog: does things\n\n"
+        "Usage:\n"
+        "    prog <flags>\n\n"
+        "Subcommands:\n"
+        "    None\n\n"
+        "Flags:\n"
+        "    --help, -h    Display help message\n";
+    ASSERT_CHILD_OUTPUT(help_output, sizeof help_output - 1,
+                        child_ap_parse_help_long);
+    ASSERT_CHILD_OUTPUT(help_output, sizeof help_output - 1,
+                        child_ap_parse_help_short);
+
+    // Fatal parse errors.
+    ASSERT_CHILD_FATAL(child_ap_parse_no_args);
+    ASSERT_CHILD_FATAL(child_ap_parse_int_overflow);
+    PASS();
+}
+
+TEST test_pf_ap_print_usage(void)
+{
+    static const char root_usage[] =
+        "prog: does things\n\n"
+        "Usage:\n"
+        "    prog <subcommand> <flags>\n\n"
+        "Subcommands:\n"
+        "    run    run it\n\n"
+        "Flags:\n"
+        "    --help, -h    Display help message\n"
+        "    --verbose, -v    be verbose\n";
+    ASSERT_CHILD_OUTPUT(root_usage, sizeof root_usage - 1,
+                        child_ap_print_usage_root);
+
+    static const char leaf_usage[] =
+        "leaf\n\n"
+        "Usage:\n"
+        "    leaf <int> <flags>\n\n"
+        "Subcommands:\n"
+        "    None\n\n"
+        "Flags:\n"
+        "    --help, -h    Display help message\n";
+    ASSERT_CHILD_OUTPUT(leaf_usage, sizeof leaf_usage - 1,
+                        child_ap_print_usage_leaf);
+
+    static const char kind_usage[] =
+        "intcmd\n\n"
+        "Usage:\n"
+        "    intcmd <int> <flags>\n\n"
+        "Subcommands:\n"
+        "    None\n\n"
+        "Flags:\n"
+        "    --help, -h    Display help message\n"
+        "strcmd\n\n"
+        "Usage:\n"
+        "    strcmd <string> <flags>\n\n"
+        "Subcommands:\n"
+        "    None\n\n"
+        "Flags:\n"
+        "    --help, -h    Display help message\n"
+        "boolcmd\n\n"
+        "Usage:\n"
+        "    boolcmd <boolean> <flags>\n\n"
+        "Subcommands:\n"
+        "    None\n\n"
+        "Flags:\n"
+        "    --help, -h    Display help message\n"
+        "nonecmd\n\n"
+        "Usage:\n"
+        "    nonecmd <flags>\n\n"
+        "Subcommands:\n"
+        "    None\n\n"
+        "Flags:\n"
+        "    --help, -h    Display help message\n";
+    ASSERT_CHILD_OUTPUT(kind_usage, sizeof kind_usage - 1,
+                        child_ap_print_usage_kinds);
+    PASS();
+}
+
+TEST test_pf_ap_destroy(void)
+{
+    int value = 0;
+    bool verbose = false;
+
+    pf_ap *root = pf_ap_make(NULL, "prog", "root", 'n', NULL);
+    pf_ap *alpha = pf_ap_make(root, "alpha", NULL, 'n', NULL);
+    pf_ap *beta = pf_ap_make(root, "beta", NULL, 'n', NULL);
+    (void) pf_ap_make(alpha, "nested", NULL, 'i', &value);
+    pf_ap_flag_add(alpha, "--verbose", "-v", NULL, 'b', &verbose);
+    pf_ap_flag_add(beta, "--value", NULL, NULL, 'i', &value);
+
+    pf_ap_destroy(root);
+    PASS();
+}
+
 SUITE(pf_str_suite)
 {
     RUN_TEST(test_pf_runetoascii);
@@ -713,11 +1264,21 @@ SUITE(pf_str_suite)
     RUN_TEST(test_pf_str_iterator_is_done);
 }
 
+SUITE(pf_ap_suite)
+{
+    RUN_TEST(test_pf_ap_make);
+    RUN_TEST(test_pf_ap_flag_add);
+    RUN_TEST(test_pf_ap_parse);
+    RUN_TEST(test_pf_ap_print_usage);
+    RUN_TEST(test_pf_ap_destroy);
+}
+
 GREATEST_MAIN_DEFS();
 
 int main(int argc, char **argv)
 {
     GREATEST_MAIN_BEGIN();
     RUN_SUITE(pf_str_suite);
+    RUN_SUITE(pf_ap_suite);
     GREATEST_MAIN_END();
 }
