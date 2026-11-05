@@ -1,3 +1,4 @@
+/* pf_str: String and string view manipulation library */
 #ifndef pf_str_h
 #define pf_str_h
 

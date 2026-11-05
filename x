@@ -23,7 +23,10 @@ class Lib:
     impl_macro: str
 
 
-libs = [Lib(src / "pf_str.c", src / "pf_str.h", "PF_STR_IMPLEMENTATION")]
+libs = [
+    Lib(src / "pf_str.c", src / "pf_str.h", "PF_STR_IMPLEMENTATION"),
+    Lib(src / "pf_ap.c", src / "pf_ap.h", "PF_AP_IMPLEMENTATION"),
+]
 
 
 def build(_args: argparse.Namespace):
