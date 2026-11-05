@@ -104,7 +104,7 @@ void pf_ap_destroy(pf_ap *parent);
 // function prints the error to stderr and exits the program with status 1.
 // `arg_ptr` will be one of these respective values in the case the flag is
 // never provided (and thus no argument ever parsed):
-//      - 'i': -0xdeadbeef
+//      - 'i': 0xdeadbeef
 //      - 's': "\0"
 //      - 'b': false
 void pf_ap_flag_add(pf_ap *parser, const char *name, const char *short_name,
