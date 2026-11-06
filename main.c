@@ -10,23 +10,23 @@ void showcase_pf_str(void)
 {
     puts("---- PF_STR ----");
 
-    pf_str s = pf_str_new_alloc_formatted("Hello, %s!", "संसार");
-    puts(PF_CSTRING(s));
-    pf_str_iterator it = pf_str_iterator_new(s);
+    str s = str_new_alloc_formatted("Hello, %s!", "संसार");
+    puts(CSTRING(s));
+    str_iterator it = str_iterator_new(s);
     puts("each codepoint:");
-    while (!pf_str_iterator_is_done(it)) {
+    while (!str_iterator_is_done(it)) {
         size_t len;
-        pf_rune next = pf_str_iterator_next(&it, &len);
+        rune next = str_iterator_next(&it, &len);
         printf("\tlen: %zu, cp: %d, printed: ", len, next);
-        pf_rune_print(next);
+        rune_print(next);
         putchar('\n');
     }
 
-    pf_strv s2 = PF_STRLIT("Hallo, Welt!");
-    bool equal = pf_str_equal(PF_TOVIEW(s), s2);
+    strv s2 = STRLIT("Hallo, Welt!");
+    bool equal = str_equal(STRTOVIEW(s), s2);
     printf("equal? %s\n", equal ? "yay" : "nay");
 
-    pf_str_free(s);
+    str_free(s);
 }
 
 #define PF_AP_IMPLEMENTATION
