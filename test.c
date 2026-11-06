@@ -450,35 +450,18 @@ TEST test_pf_strlit(void)
     PASS();
 }
 
-TEST test_pf_strv_new_from_nullterminated_buf(void)
+TEST test_pf_strv_new_from_cstring(void)
 {
     const char *buf = "hello";
-    pf_strv v = _pf_strv_new_from_nullterminated_buf(buf, 5);
+    pf_strv v = pf_strv_new_from_cstring(buf, 5);
     ASSERT(v._s == buf);
     ASSERT_VIEW("hello", 5, v);
 
-    pf_strv shorter = _pf_strv_new_from_nullterminated_buf(buf, 2);
+    pf_strv shorter = pf_strv_new_from_cstring(buf, 2);
     ASSERT_VIEW("he", 2, shorter);
 
-    pf_strv empty = _pf_strv_new_from_nullterminated_buf(buf, 0);
+    pf_strv empty = pf_strv_new_from_cstring(buf, 0);
     ASSERT_EQ((size_t) 0, empty.len);
-    PASS();
-}
-
-TEST test_pf_strv_new_from_buf(void)
-{
-    char buf[10] = "abcdefghi";
-    pf_strv v = pf_strv_new_from_buf(buf, 3);
-
-    ASSERT(v._s == buf);
-    ASSERT_VIEW("abc", 3, v);
-    ASSERT_EQ('\0', buf[3]);
-    ASSERT_EQ('e', buf[4]);
-
-    char empty_buf[4] = { 'x', 'y', 'z', 'w' };
-    pf_strv empty = pf_strv_new_from_buf(empty_buf, 0);
-    ASSERT_EQ((size_t) 0, empty.len);
-    ASSERT_EQ('\0', empty_buf[0]);
     PASS();
 }
 
@@ -1253,8 +1236,7 @@ SUITE(pf_str_suite)
     RUN_TEST(test_pf_cstring);
     RUN_TEST(test_pf_toview);
     RUN_TEST(test_pf_strlit);
-    RUN_TEST(test_pf_strv_new_from_nullterminated_buf);
-    RUN_TEST(test_pf_strv_new_from_buf);
+    RUN_TEST(test_pf_strv_new_from_cstring);
     RUN_TEST(test_pf_str_new_alloc);
     RUN_TEST(test_pf_str_new_alloc_formatted);
     RUN_TEST(test_pf_str_free);

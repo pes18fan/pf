@@ -70,18 +70,12 @@ static int encode_utf8(uint32_t cp, char out[4])
     return len;
 }
 
-pf_strv _pf_strv_new_from_nullterminated_buf(const char *buf, int len)
+pf_strv pf_strv_new_from_cstring(const char *buf, int len)
 {
     return (pf_strv){
         ._s = buf,
         .len = len,
     };
-}
-
-pf_strv pf_strv_new_from_buf(char *buf, int len)
-{
-    buf[len] = '\0';
-    return _pf_strv_new_from_nullterminated_buf(buf, len);
 }
 
 pf_str pf_str_new_alloc(size_t len)

@@ -43,20 +43,13 @@ static inline int PF_RUNETOASCII(pf_rune r)
 static inline pf_strv PF_TOVIEW(pf_str str)
 { return (pf_strv) { ._s = str._s, .len = str.len }; }
 
-// Create a new pf_strv of size `len` from a preallocated buffer `buf`,
-// where `buf` is assumed to have a size of at least `len + 1` characters and
-// have `buf[len]` equal to '\0'.
-pf_strv _pf_strv_new_from_nullterminated_buf(const char *buf, int len);
-
-// Create a new pf_strv for a string of size `len` from a preallocated buffer
-// `buf`.
-// `buf[len]` is set to a null character here, therefore it MUST be able to hold
-// at least `len + 1` characters.
-pf_strv pf_strv_new_from_buf(char *buf, int len);
+// Create a new pf_strv of size `len` from a C-string `buf`,
+// where `buf` is a buffer managed by the caller that MUST to have a size of at
+// least `len + 1` characters AND have `buf[len]` equal to '\0'.
+pf_strv pf_strv_new_from_cstring(const char *buf, int len);
 
 // Create a pf_strv from a string literal.
-#define PF_STRLIT(lit) \
-    _pf_strv_new_from_nullterminated_buf((lit), sizeof((lit)) - 1)
+#define PF_STRLIT(lit) pf_strv_new_from_cstring((lit), sizeof((lit)) - 1)
 
 // Create a new pf_str of size `len`.
 // Allocates on the heap! Call pf_str_free to free the result.
