@@ -3,7 +3,7 @@
 #define pf_ap_h
 
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L
-#error C99 support required
+#error C11 support required
 #endif
 
 #define MAX_FLAGS 16

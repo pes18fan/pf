@@ -2,25 +2,44 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdnoreturn.h>
 #include <string.h>
 
+static noreturn void panic_impl(const char *prefix, const char *fmt, ...)
+{
+    va_list list;
+    va_start(list, fmt);
+    fprintf(stderr, "%s: ", prefix);
+    vfprintf(stderr, fmt, list);
+    putc('\n', stderr);
+    va_end(list);
+    exit(1);
+}
+
 // Simple wrapper for panic with formatted errors
-#define panic(message, ...)                      \
-    do {                                         \
-        fprintf(stderr, "panic: ");              \
-        fprintf(stderr, (message), __VA_ARGS__); \
-        exit(1);                                 \
+#define panic(message) panic_impl("panic", message)
+
+// Simple wrapper for panic with formatted errors
+#define panicf(fmt, ...) panic_impl("panic", fmt, __VA_ARGS__)
+
+// Assertion
+#define ensure(expr, message)                           \
+    do {                                                \
+        if (!(expr)) {                                  \
+            panic_impl("failed assertion:", (message)); \
+        }                                               \
     } while (0)
 
 // Assertion with formatted errors
-#define ensure(expr, message, ...)         \
-    do {                                   \
-        if (!(expr)) {                     \
-            panic((message), __VA_ARGS__); \
-        }                                  \
+#define ensuref(expr, message, ...)                                   \
+    do {                                                              \
+        if (!(expr)) {                                                \
+            panic_impl("failed assertion: ", (message), __VA_ARGS__); \
+        }                                                             \
     } while (0)
 
 static inline const char *pf_ap_argument_kind_str(pf_ap_arg_kind k)
@@ -36,38 +55,38 @@ static inline const char *pf_ap_argument_kind_str(pf_ap_arg_kind k)
         return "string";
     }
 
-    panic("invalid argument kind str %d", k);
+    panicf("invalid argument kind str %d", k);
 }
 
 pf_ap *pf_ap_make(pf_ap *parent, const char *name, const char *description,
                   pf_ap_arg_kind kind, void *arg_ptr,
                   const char *arg_description)
 {
-    ensure(name != NULL, "parser_make: parser name cannot be NULL", 0);
+    ensure(name != NULL, "parser_make: parser name cannot be NULL");
 
     if (parent != NULL) {
         // Ensure we're not adding too many subparsers
-        ensure(parent->subparser_count < MAX_SUBPARSERS,
-               "parser_make: failed to add subparser %s to parent %s, "
-               "parent has too many subparsers; only upto %d supported",
-               name, parent->name, MAX_SUBPARSERS);
+        ensuref(parent->subparser_count < MAX_SUBPARSERS,
+                "parser_make: failed to add subparser %s to parent %s, "
+                "parent has too many subparsers; only upto %d supported",
+                name, parent->name, MAX_SUBPARSERS);
 
         // A parser cannot have a subparser if it takes an argument
-        ensure(parent->arg.kind == pf_ap_arg_none,
-               "parser_make: cannot add subparser %s to parser %s because the "
-               "latter takes a %s argument",
-               name, parent->name, pf_ap_argument_kind_str(parent->arg.kind));
+        ensuref(parent->arg.kind == pf_ap_arg_none,
+                "parser_make: cannot add subparser %s to parser %s because the "
+                "latter takes a %s argument",
+                name, parent->name, pf_ap_argument_kind_str(parent->arg.kind));
 
         // Ensure no duplicates
         for (int i = 0; i < parent->subparser_count; i++) {
-            ensure(strcmp(name, parent->subparsers[i]->name) != 0,
-                   "parser_make: cannot add subcommand %s twice to parent %s",
-                   name, parent->name);
+            ensuref(strcmp(name, parent->subparsers[i]->name) != 0,
+                    "parser_make: cannot add subcommand %s twice to parent %s",
+                    name, parent->name);
         }
     }
 
     struct pf_ap *p = malloc(sizeof(struct pf_ap));
-    ensure(p != NULL, "parser_make: fatal error: %s", strerror(errno));
+    ensuref(p != NULL, "parser_make: fatal error: %s", strerror(errno));
 
     // Set some sentinel values for the cases where no argument was read
     switch (kind) {
@@ -83,7 +102,7 @@ pf_ap *pf_ap_make(pf_ap *parent, const char *name, const char *description,
     case pf_ap_arg_none:
         break;  // nothing to do
     default:
-        panic("invalid argument kind %d", kind);
+        panicf("invalid argument kind %d", kind);
     }
 
     *p = (struct pf_ap){
@@ -128,47 +147,47 @@ void pf_ap_flag_add(pf_ap *parser, const char *name, const char *short_name,
                     const char *description, pf_ap_arg_kind kind, void *arg_ptr,
                     const char *arg_description)
 {
-    ensure(name != NULL, "flag_add: long name of flag cannot be NULL", 0);
+    ensure(name != NULL, "flag_add: long name of flag cannot be NULL");
 
     // Ensure not too many flags
-    ensure(parser->flag_count < MAX_FLAGS,
-           "flag_add: failed to add flag %s to parser %s, "
-           "parser has too many flags; only upto %d supported",
-           name, parser->name, MAX_FLAGS);
+    ensuref(parser->flag_count < MAX_FLAGS,
+            "flag_add: failed to add flag %s to parser %s, "
+            "parser has too many flags; only upto %d supported",
+            name, parser->name, MAX_FLAGS);
 
     // Flag must begin with --
-    ensure(strncmp(name, "--", 2) == 0,
-           "flag_add: invalid flag name %s, it must begin with `--`", name);
+    ensuref(strncmp(name, "--", 2) == 0,
+            "flag_add: invalid flag name %s, it must begin with `--`", name);
 
     if (short_name != NULL) {
         // Short flag must begin with -
-        ensure(strncmp(short_name, "-", 1) == 0,
-               "flag_add: invalid short flag name %s, it must begin with `-`",
-               name);
+        ensuref(strncmp(short_name, "-", 1) == 0,
+                "flag_add: invalid short flag name %s, it must begin with `-`",
+                name);
 
         // Short flag must be exactly two chars long
-        ensure(strlen(short_name) == 2,
-               "flag_add: invalid short flag name %s, it must be "
-               "exactly two characters long",
-               short_name);
+        ensuref(strlen(short_name) == 2,
+                "flag_add: invalid short flag name %s, it must be "
+                "exactly two characters long",
+                short_name);
     }
 
     // Ensure no duplicates, and that the --help or -h flags are not duplicated.
     // The latter is the same as the duplicate problem, but special cased to
     // provide a clearer error message.
     for (int i = 0; i < parser->flag_count; i++) {
-        ensure(strcmp(name, parser->flags[i]->name) != 0,
-               "flag_add: cannot add flag %s twice", name);
+        ensuref(strcmp(name, parser->flags[i]->name) != 0,
+                "flag_add: cannot add flag %s twice", name);
 
         if (short_name != NULL && parser->flags[i]->short_name != NULL) {
-            ensure(strcmp(short_name, parser->flags[i]->short_name) != 0,
-                   "flag_add: cannot add flag with short name %s twice",
-                   short_name);
+            ensuref(strcmp(short_name, parser->flags[i]->short_name) != 0,
+                    "flag_add: cannot add flag with short name %s twice",
+                    short_name);
         }
     }
 
     pf_ap_flag *f = malloc(sizeof(pf_ap_flag));
-    ensure(f != NULL, "flag_add: fatal error: %s", strerror(errno));
+    ensuref(f != NULL, "flag_add: fatal error: %s", strerror(errno));
 
     // Set some sentinel values for the cases where no argument was read
     switch (kind) {
@@ -184,7 +203,7 @@ void pf_ap_flag_add(pf_ap *parser, const char *name, const char *short_name,
     case pf_ap_arg_none:
         break;  // nothing to do
     default:
-        panic("invalid argument kind %d", kind);
+        panicf("invalid argument kind %d", kind);
     }
 
     *f = (pf_ap_flag){
@@ -311,7 +330,7 @@ static int pf_ap_parse_argument(pf_ap *parser, int argc, const char *argv[])
 
         // Overflow/underflow, should just panic here
         if (errno == ERANGE || v > INT_MAX || v < INT_MIN)
-            panic("parse: integer overflow on %ld", v);
+            panicf("parse: integer overflow on %ld", v);
 
         //  No digits found in string
         if (endptr == arg) {
@@ -340,7 +359,7 @@ static int pf_ap_parse_argument(pf_ap *parser, int argc, const char *argv[])
         break;
     }
     default:
-        panic("parse: invalid argument kind %d", parser->arg.kind);
+        panicf("parse: invalid argument kind %d", parser->arg.kind);
     }
 
     return initial_argc - argc;
@@ -377,7 +396,7 @@ static int pf_ap_parse_argument_flag(pf_ap_flag *flag, int argc,
 
         // Overflow/underflow, should just panic here
         if (errno == ERANGE || v > INT_MAX || v < INT_MIN)
-            panic("parse: integer overflow on %ld", v);
+            panicf("parse: integer overflow on %ld", v);
 
         //  No digits found in string
         if (endptr == arg) {
@@ -406,7 +425,7 @@ static int pf_ap_parse_argument_flag(pf_ap_flag *flag, int argc,
         break;
     }
     default:
-        panic("parse: invalid argument kind %d", flag->arg.kind);
+        panicf("parse: invalid argument kind %d", flag->arg.kind);
     }
 
     return initial_argc - argc;
@@ -472,7 +491,7 @@ int pf_ap_parse(pf_ap *parser, int argc, const char *argv[])
     int skipped;
 
     ensure(argc >= 1,
-           "parse: invalid arguments provided, need at least 1 arg\n", 0);
+           "parse: invalid arguments provided, need at least 1 arg\n");
 
     // Consume the first arg (program / subcommand name)
     argv++;
@@ -543,3 +562,5 @@ die:
 
 #undef panic
 #undef ensure
+#undef panicf
+#undef ensuref
