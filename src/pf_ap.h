@@ -1,4 +1,3 @@
-/* pf_ap: Argument parsing library inspired by Python's argparse */
 #ifndef pf_ap_h
 #define pf_ap_h
 
@@ -8,6 +7,28 @@
 
 #define MAX_FLAGS 16
 #define MAX_SUBPARSERS 16
+
+#ifndef PF_AP_NO_SHORT_NAMES
+#define pf_ap_arg_int arg_int
+#define pf_ap_arg_str arg_str
+#define pf_ap_arg_boolean arg_boolean
+#define pf_ap_arg_none arg_none
+#define pf_ap_arg_kind arg_kind
+
+#define pf_ap_arg arg
+
+#define pf_ap_flag flag
+
+#define pf_ap_argparser argparser
+#define pf_ap_argparser_make argparser_make
+#define pf_ap_argparser_destroy argparser_destroy
+
+#define pf_ap_flag_add flag_add
+
+#define pf_ap_print_usage print_usage
+
+#define pf_ap_argparse argparse
+#endif
 
 typedef enum {
     pf_ap_arg_int,      // The `int` type.
@@ -50,7 +71,7 @@ typedef struct {
 
 // Parser for a command. Has a set of its own subparsers.
 // and flags.
-typedef struct pf_ap {
+typedef struct pf_ap_argparser {
     // Name of the command.
     const char *name;
 
@@ -58,7 +79,7 @@ typedef struct pf_ap {
     const char *description;
 
     // Subparsers to parse any subcommands.
-    struct pf_ap *subparsers[MAX_SUBPARSERS];
+    struct pf_ap_argparser *subparsers[MAX_SUBPARSERS];
     int subparser_count;
 
     // Flags.
@@ -67,7 +88,7 @@ typedef struct pf_ap {
 
     // Argument taken by the subcommand.
     pf_ap_arg arg;
-} pf_ap;
+} pf_ap_argparser;
 
 // Create an argument parser as the subparser of `parent`, with a subcommand
 // name `name`, description `description`, argument kind `kind`, and argument
@@ -87,14 +108,15 @@ typedef struct pf_ap {
 //      - 's': ""
 //      - 'b': false
 // `arg_description` can be set to NULL if it is not desired or applicable.
-pf_ap *pf_ap_make(pf_ap *parent, const char *name, const char *description,
-                  pf_ap_arg_kind kind, void *arg_ptr,
-                  const char *arg_description);
+pf_ap_argparser *pf_ap_argparser_make(pf_ap_argparser *parent, const char *name,
+                                      const char *description,
+                                      pf_ap_arg_kind kind, void *arg_ptr,
+                                      const char *arg_description);
 
-// Deallocate an pf_ap.
+// Deallocate an argument parser.
 // Also deallocates all of its subparsers and flags; hence you should avoid
 // running it for every single subparser; just destroy the root.
-void pf_ap_destroy(pf_ap *parent);
+void pf_ap_argparser_destroy(pf_ap_argparser *parent);
 
 // Add a flag to `parser`, with a `name` and optional `short_name` and
 // `description`. The latter two can be left NULL if undesired. The type of the
@@ -113,12 +135,13 @@ void pf_ap_destroy(pf_ap *parent);
 //      - 's': ""
 //      - 'b': false
 // `arg_description` can be set to NULL if it is not desired or applicable.
-void pf_ap_flag_add(pf_ap *parser, const char *name, const char *short_name,
-                    const char *description, pf_ap_arg_kind kind, void *arg_ptr,
+void pf_ap_flag_add(pf_ap_argparser *parser, const char *name,
+                    const char *short_name, const char *description,
+                    pf_ap_arg_kind kind, void *arg_ptr,
                     const char *arg_description);
 
 // Print the usage message for `parser`.
-void pf_ap_print_usage(pf_ap *parser);
+void pf_ap_print_usage(pf_ap_argparser *parser);
 
 // Parse arguments based on the spec in `parser`.
 // Returns the number of arguments parsed on success (a non-negative integer),
@@ -126,6 +149,6 @@ void pf_ap_print_usage(pf_ap *parser);
 // If it encounters a problem with the setup of the arguments (for example an
 // invalid argument kind, or invalid `argv`), it prints the issue to stderr and
 // exits the program with status 1.
-int pf_ap_parse(pf_ap *parser, int argc, const char *argv[]);
+int pf_ap_argparse(pf_ap_argparser *parser, int argc, const char *argv[]);
 
 #endif

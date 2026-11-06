@@ -1,18 +1,10 @@
 #!/usr/bin/env python
-import shutil
-import textwrap
-import subprocess
-from typing import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from os.path import basename, splitext
 import argparse
-import platform
-import os
-import urllib.request
 
 root = Path(__file__).resolve().parent
-greatest_src = root / "greatest.h"
-test_src = root / "test.c"
 src = root / "src"
 
 
@@ -21,11 +13,25 @@ class Lib:
     source: Path
     header: Path
     impl_macro: str
+    one_line_description: str
+    short_name_disabler_macro: str | None
 
 
 libs = [
-    Lib(src / "pf_str.c", src / "pf_str.h", "PF_STR_IMPLEMENTATION"),
-    Lib(src / "pf_ap.c", src / "pf_ap.h", "PF_AP_IMPLEMENTATION"),
+    Lib(
+        source=src / "pf_str.c",
+        header=src / "pf_str.h",
+        impl_macro="PF_STR_IMPLEMENTATION",
+        one_line_description="string and string view manipulation library",
+        short_name_disabler_macro=None,
+    ),
+    Lib(
+        source=src / "pf_ap.c",
+        header=src / "pf_ap.h",
+        impl_macro="PF_AP_IMPLEMENTATION",
+        one_line_description="argument parsing library inspired by Python's argparse",
+        short_name_disabler_macro="PF_AP_NO_SHORT_NAMES",
+    ),
 ]
 
 
@@ -35,11 +41,33 @@ def build(_args: argparse.Namespace):
         source = lib.source
         header = lib.header
         impl_macro = lib.impl_macro
-        output = os.path.basename(lib.header)
+        one_line_description = lib.one_line_description
+        short_name_disabler_macro = lib.short_name_disabler_macro
+        output = basename(lib.header)
 
-        lines = []
+        lines = [
+            f"/* {basename(header)} - {one_line_description}\n",
+            "\n",
+            "   To use this library, do this in exactly *one* C file:\n",
+            "\n",
+            f"   #define {impl_macro}\n",
+            f'   #include "{basename(header)}"\n',
+        ]
+
+        if short_name_disabler_macro is not None:
+            qualifier = basename(splitext(header)[0])
+            lines += [
+                "\n",
+                f"   For convenience of use, the library exposes shorter function names not\n",
+                f'   qualified with the "{qualifier}" prefix. If these conflict with names in your\n',
+                "   code, define this flag before including the header: \n",
+                "\n",
+                f"   #define {short_name_disabler_macro}\n",
+            ]
+        lines.append("*/\n")
+
         with open(header, "r") as f:
-            lines = f.readlines()
+            lines += f.readlines()
 
         for line in reversed(lines):
             lines = lines[:-1]
@@ -61,75 +89,12 @@ def build(_args: argparse.Namespace):
     print("all headers built.")
 
 
-def test(args: argparse.Namespace):
-    if args.rebuild:
-        build(args)
-
-    if not os.path.exists(greatest_src):
-        print("downloading greatest.h...")
-        url = "https://raw.githubusercontent.com/silentbicycle/greatest/refs/heads/release/greatest.h"
-        try:
-            urllib.request.urlretrieve(url, root / "greatest.h")
-        except Exception as e:
-            print(f"failed to download greatest.h: {e}")
-
-    test_bin = root / "test.bin"
-    print("testing...")
-    try:
-        subprocess.run(
-            [
-                "cc",
-                str(test_src),
-                "-o",
-                str(test_bin),
-                "-Wall",
-                "-Wextra",
-                "-fsanitize=address",
-            ],
-            check=True,
-            capture_output=True,
-        )
-
-        test_cmd = [str(test_bin)]
-        if args.verbose:
-            test_cmd.append("-v")
-        result = subprocess.run(test_cmd, check=True, capture_output=True)
-
-        print(result.stdout.decode("utf-8"))
-        os.remove(test_bin)
-    except subprocess.CalledProcessError as e:
-        print(
-            textwrap.dedent(f"""
-            command failed: {" ".join(e.cmd)}:
-                {e.stderr.decode("utf-8")}
-            testing failed with exit status: {e.returncode}
-            """)
-        )
-    else:
-        print("tests passed!")
-
-
 def main() -> int | None:
     parser = argparse.ArgumentParser(prog="build")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     build_p = subparsers.add_parser("build", help="Build the headers")
     build_p.set_defaults(func=build)
-
-    test_p = subparsers.add_parser("test", help="Run tests")
-    test_p.add_argument(
-        "-r",
-        "--rebuild",
-        help="Rebuild the headers before testing",
-        action="store_true",
-    )
-    test_p.add_argument(
-        "-v",
-        "--verbose",
-        help="Show verbose output",
-        action="store_true",
-    )
-    test_p.set_defaults(func=test)
 
     args = parser.parse_args()
     args.func(args)
