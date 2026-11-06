@@ -251,7 +251,7 @@ pfs_rune _pfs_str_index(pfs_str s, size_t idx)
 
 char _pfs_strv_index_byte(pfs_strv sv, size_t idx)
 {
-    if (idx < 0 || idx >= sv.len) {
+    if (idx >= sv.len) {
         fprintf(stderr, "fatal: invalid byte index %zu for s of length %zu\n",
                 idx, sv.len);
         exit(1);
@@ -335,10 +335,10 @@ void _pfs_strv_print(pfs_strv sv)
 void _pfs_str_print(pfs_str s)
 { _pfs_strv_print(PFS_STRTOVIEW(s)); }
 
-void pfs_rune_print(pfs_rune rune)
+void pfs_rune_print(pfs_rune r)
 {
     char buf[4];
-    int len = encode_utf8(rune, buf);
+    int len = encode_utf8(r, buf);
     if (len != -1) {
         for (size_t i = 0; i < len; i++)
             putchar(buf[i]);

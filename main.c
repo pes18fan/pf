@@ -42,7 +42,7 @@ void showcase_pf_ap(int argc, const char *argv[])
     flag_add(p, "--test", "-t", "just a test", arg_none, NULL, NULL);
     flag_add(p, "--test2", "-d", "just another test", arg_none, NULL, NULL);
 
-    char *a;
+    const char *a;
     argparser *another =
         argparser_make(p, "hewwo", "another test", arg_str, &a, "a string");
     flag_add(another, "--heh", "-j", "just another another test", arg_none,

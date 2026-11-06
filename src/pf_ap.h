@@ -1,7 +1,7 @@
 #ifndef PF_AP_H
 #define PF_AP_H
 
-#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L
+#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 201112L)
 #error C11 support required
 #endif
 
