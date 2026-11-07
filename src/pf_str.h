@@ -8,7 +8,10 @@
 #ifndef PF_STR_NO_SHORT_NAMES
 #define str pfs_str
 #define strv pfs_strv
+
 #define rune pfs_rune
+#define rune_decode pfs_rune_decode
+#define rune_encode pfs_rune_encode
 
 #define RUNETOASCII PFS_RUNETOASCII
 #define CSTRING PFS_CSTRING

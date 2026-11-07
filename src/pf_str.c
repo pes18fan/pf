@@ -132,7 +132,10 @@ void pfs_str_free(pfs_str s)
 void _pfs_str_grow_with_strv(pfs_str *a, pfs_strv b)
 {
     if (a->len > SIZE_MAX - b.len - 1) {
-        fprintf(stderr, "fatal: attempt to grow a pfs_str over size limit\n");
+        fprintf(
+            stderr,
+            "fatal: attempt to grow a pfs_str over size limit of %zu bytes\n",
+            SIZE_MAX);
         exit(1);
     }
 
@@ -155,8 +158,10 @@ void _pfs_str_grow_with_str(pfs_str *a, pfs_str b)
 pfs_str _pfs_strv_concat(pfs_strv a, pfs_strv b)
 {
     if (a.len > SIZE_MAX - b.len - 1) {
-        fprintf(stderr, "fatal: attempt to create a concatenated pfs_str over "
-                        "size limit\n");
+        fprintf(stderr,
+                "fatal: attempt to create a concatenated pfs_str over "
+                "size limit of %zu bytes\n",
+                SIZE_MAX);
         exit(1);
     }
 
