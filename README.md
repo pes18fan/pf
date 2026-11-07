@@ -2,6 +2,8 @@
 
 Single-header libraries for C.
 
+Still very incomplete!
+
 ## Building
 
 The libraries are developed as separate C and header files, but are joined
