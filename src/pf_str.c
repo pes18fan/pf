@@ -9,11 +9,12 @@
 
 // Decode a single codepoint from a UTF-8 encoded string.
 // Returns the codepoint, and stores its byte size in `len`.
+// Assumes the provided string is valid UTF-8.
 // Function definition adapted from the one shown in Jimmy Lefevre's talk at
 // Better Software Conference 2026.
-static uint32_t decode_utf8(char *s, size_t *len)
+pfs_rune pfs_rune_decode(char *s, size_t *len)
 {
-    uint32_t cp;
+    pfs_rune cp;
     switch (*s & 0xf0) {
     case 0xf0:
         cp = *s & 7;
@@ -43,9 +44,9 @@ static uint32_t decode_utf8(char *s, size_t *len)
 // Encode a codepoint to UTF-8.
 // Returns byte size of the encoded codepoint, and the encoded bytes in `out`.
 // If `cp` is not a valid Unicode codepoint, -1 is returned.
-static int encode_utf8(uint32_t cp, char out[4])
+int pfs_rune_encode(pfs_rune cp, char out[4])
 {
-    size_t len;
+    int len;
     if (cp <= 0x7f) {
         out[0] = cp;
         len = 1;
@@ -131,7 +132,7 @@ void pfs_str_free(pfs_str s)
 void _pfs_str_grow_with_strv(pfs_str *a, pfs_strv b)
 {
     if (a->len > SIZE_MAX - b.len - 1) {
-        fprintf(stderr, "fatal: attempt to grow a pfs_str over size limit");
+        fprintf(stderr, "fatal: attempt to grow a pfs_str over size limit\n");
         exit(1);
     }
 
@@ -154,9 +155,8 @@ void _pfs_str_grow_with_str(pfs_str *a, pfs_str b)
 pfs_str _pfs_strv_concat(pfs_strv a, pfs_strv b)
 {
     if (a.len > SIZE_MAX - b.len - 1) {
-        fprintf(
-            stderr,
-            "fatal: attempt to create a concatenated pfs_str over size limit");
+        fprintf(stderr, "fatal: attempt to create a concatenated pfs_str over "
+                        "size limit\n");
         exit(1);
     }
 
@@ -232,7 +232,7 @@ pfs_rune _pfs_strv_index(pfs_strv sv, size_t idx)
     size_t bytes = 0;
     while (bytes < sv.len) {
         size_t len;
-        pfs_rune cp = decode_utf8((char *) p, &len);
+        pfs_rune cp = pfs_rune_decode((char *) p, &len);
         if (cps == idx)
             return cp;
 
@@ -335,18 +335,6 @@ void _pfs_strv_print(pfs_strv sv)
 void _pfs_str_print(pfs_str s)
 { _pfs_strv_print(PFS_STRTOVIEW(s)); }
 
-void pfs_rune_print(pfs_rune r)
-{
-    char buf[4];
-    int len = encode_utf8(r, buf);
-    if (len != -1) {
-        for (size_t i = 0; i < len; i++)
-            putchar(buf[i]);
-    } else {
-        printf("<invalid-rune>");
-    }
-}
-
 pfs_str_iterator _pfs_strv_iterator_new(pfs_strv sv)
 {
     _pfs_str_iterator_state state = _pfs_str_iterator_iterating;
@@ -366,7 +354,7 @@ pfs_rune pfs_str_iterator_next(pfs_str_iterator *it, size_t *len)
     if (it->_state == _pfs_str_iterator_iterating) {
         pfs_strv sv = it->_strv;
         const char *p = PFS_CSTRING(sv);
-        cp = decode_utf8((char *) p, &cplen);
+        cp = pfs_rune_decode((char *) p, &cplen);
         if (len != NULL)
             *len = cplen;
 

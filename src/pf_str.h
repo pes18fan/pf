@@ -67,11 +67,29 @@ typedef struct {
 // A Unicode codepoint.
 typedef uint32_t pfs_rune;
 
+// Decode a single codepoint from a UTF-8 encoded string.
+// Returns the codepoint, and stores its byte size in `len`.
+// Assumes the provided string is valid UTF-8.
+// Function definition adapted from the one shown in Jimmy Lefevre's talk at
+// Better Software Conference 2026.
+pfs_rune pfs_rune_decode(char *s, size_t *len);
+
+// Encode a codepoint to UTF-8.
+// Returns byte size of the encoded codepoint, and the encoded bytes in `out`.
+// If `cp` is not a valid Unicode codepoint, -1 is returned.
+int pfs_rune_encode(pfs_rune cp, char out[4]);
+
 // Returns the ASCII value for the given pfs_rune if it is in range. Otherwise
 // it returns -1.
 // If the return value is not -1, it can be safely casted to `char`.
 static inline int PFS_RUNETOASCII(pfs_rune r)
-{ return r < 128 ? (r & 127) : -1; }
+{
+    char out[4];
+    int len = pfs_rune_encode(r, out);
+    if (len == 1)
+        return out[0];
+    return -1;
+}
 
 // Get the C-string representation of a pfs_str.
 // Important note: For a pfs_strv, the returned C-string may not necessarily
@@ -115,7 +133,7 @@ void _pfs_str_grow_with_str(pfs_str *a, pfs_str b);
 pfs_str _pfs_strv_concat(pfs_strv a, pfs_strv b);
 pfs_str _pfs_str_concat(pfs_str a, pfs_str b);
 
-// Concatenate two pfss or to pfs_strvs with each other to produce a new
+// Concatenate two pfs_strs or to pfs_strvs with each other to produce a new
 // pfs_str.
 // Allocates on the heap! Call pfs_free to free the result.
 #define pfs_str_concat(a, b)                                                 \
@@ -125,7 +143,7 @@ pfs_str _pfs_str_concat(pfs_str a, pfs_str b);
 bool _pfs_strv_equal(pfs_strv a, pfs_strv b);
 bool _pfs_str_equal(pfs_str a, pfs_str b);
 
-// Determines whether two pfss or pfs_strvs are equal in content.
+// Determines whether two pfs_strs or pfs_strvs are equal in content.
 #define pfs_str_equal(a, b) \
     _Generic((a), pfs_str: _pfs_str_equal, pfs_strv: _pfs_strv_equal)((a), (b))
 
@@ -134,6 +152,7 @@ pfs_strv _pfs_str_slice(pfs_str s, size_t start, size_t end);
 
 // Given the pfs_str or pfs_strv `s`, return a pfs_strv sliced
 // from index `start` to `end`, exclusive at `end`.
+// The slice indices are byte indices.
 // If `start` or `end` is too small or too large in relation to the length
 // of `s`, or if `start` is larger than `end`, an error message
 // is printed and the program exits.
@@ -205,9 +224,6 @@ void _pfs_str_print(pfs_str s);
 // handles string slices as well as runes.
 #define pfs_str_print(s) \
     _Generic((s), pfs_str: _pfs_str_print, pfs_strv: _pfs_strv_print)((s))
-
-// Decodes and prints a pf_rune.
-void pfs_rune_print(pfs_rune r);
 
 typedef enum {
     _pfs_str_iterator_iterating,
