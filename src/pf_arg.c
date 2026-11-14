@@ -1,4 +1,4 @@
-#include "pf_ap.h"
+#include "pf_arg.h"
 
 #include <errno.h>
 #include <limits.h>
@@ -42,25 +42,25 @@ static noreturn void panic_impl(const char *prefix, const char *fmt, ...)
         }                                                             \
     } while (0)
 
-static inline const char *pfa_argument_kind_str(pfa_arg_kind k)
+static inline const char *pf_argument_kind_str(pf_arg_kind k)
 {
     switch (k) {
-    case pfa_arg_none:
+    case pf_arg_none:
         return "none";
-    case pfa_arg_int:
+    case pf_arg_int:
         return "int";
-    case pfa_arg_boolean:
+    case pf_arg_boolean:
         return "boolean";
-    case pfa_arg_str:
+    case pf_arg_str:
         return "string";
     }
 
     panicf("invalid argument kind str %d", k);
 }
 
-pfa_argparser *pfa_argparser_make(pfa_argparser *parent, const char *name,
-                                  const char *description, pfa_arg_kind kind,
-                                  void *arg_ptr, const char *arg_description)
+pf_argparser *pf_argparser_make(pf_argparser *parent, const char *name,
+                                const char *description, pf_arg_kind kind,
+                                void *arg_ptr, const char *arg_description)
 {
     ensure(name != NULL, "parser_make: parser name cannot be NULL");
 
@@ -72,10 +72,10 @@ pfa_argparser *pfa_argparser_make(pfa_argparser *parent, const char *name,
                 name, parent->name, MAX_SUBPARSERS);
 
         // A parser cannot have a subparser if it takes an argument
-        ensuref(parent->arg.kind == pfa_arg_none,
+        ensuref(parent->arg.kind == pf_arg_none,
                 "parser_make: cannot add subparser %s to parser %s because the "
                 "latter takes a %s argument",
-                name, parent->name, pfa_argument_kind_str(parent->arg.kind));
+                name, parent->name, pf_argument_kind_str(parent->arg.kind));
 
         // Ensure no duplicates
         for (int i = 0; i < parent->subparser_count; i++) {
@@ -85,27 +85,30 @@ pfa_argparser *pfa_argparser_make(pfa_argparser *parent, const char *name,
         }
     }
 
-    pfa_argparser *p = malloc(sizeof(pfa_argparser));
-    ensuref(p != NULL, "parser_make: fatal error: %s", strerror(errno));
+    pf_argparser *p = malloc(sizeof(pf_argparser));
+    if (!p) {
+        fprintf(stderr, "fatal error: %s", strerror(errno));
+        abort();
+    }
 
     // Set some sentinel values for the cases where no argument was read
     switch (kind) {
-    case pfa_arg_int:
+    case pf_arg_int:
         *((int *) arg_ptr) = 0xdeadbeef;
         break;
-    case pfa_arg_str:
+    case pf_arg_str:
         *((const char **) arg_ptr) = "";
         break;
-    case pfa_arg_boolean:
+    case pf_arg_boolean:
         *((bool *) arg_ptr) = false;
         break;
-    case pfa_arg_none:
+    case pf_arg_none:
         break;  // nothing to do
     default:
         panicf("invalid argument kind %d", kind);
     }
 
-    *p = (pfa_argparser){
+    *p = (pf_argparser){
         .name = name,
         .description = description,
         .subparser_count = 0,
@@ -119,8 +122,8 @@ pfa_argparser *pfa_argparser_make(pfa_argparser *parent, const char *name,
     memset(p->flags, 0, sizeof p->flags);
 
     // Add --help flag
-    pfa_flag_add(p, "--help", "-h", "Display help message", pfa_arg_none, NULL,
-                 NULL);
+    pf_flag_add(p, "--help", "-h", "Display help message", pf_arg_none, NULL,
+                NULL);
 
     if (parent != NULL) {
         parent->subparsers[parent->subparser_count] = p;
@@ -130,10 +133,10 @@ pfa_argparser *pfa_argparser_make(pfa_argparser *parent, const char *name,
     return p;
 }
 
-void pfa_argparser_destroy(pfa_argparser *parent)
+void pf_argparser_destroy(pf_argparser *parent)
 {
     for (int i = 0; i < parent->subparser_count; i++) {
-        pfa_argparser_destroy(parent->subparsers[i]);
+        pf_argparser_destroy(parent->subparsers[i]);
     }
 
     for (int i = 0; i < parent->flag_count; i++) {
@@ -143,9 +146,9 @@ void pfa_argparser_destroy(pfa_argparser *parent)
     free(parent);
 }
 
-void pfa_flag_add(pfa_argparser *parser, const char *name,
-                  const char *short_name, const char *description,
-                  pfa_arg_kind kind, void *arg_ptr, const char *arg_description)
+void pf_flag_add(pf_argparser *parser, const char *name, const char *short_name,
+                 const char *description, pf_arg_kind kind, void *arg_ptr,
+                 const char *arg_description)
 {
     ensure(name != NULL, "flag_add: long name of flag cannot be NULL");
 
@@ -186,27 +189,30 @@ void pfa_flag_add(pfa_argparser *parser, const char *name,
         }
     }
 
-    pfa_flag *f = malloc(sizeof(pfa_flag));
-    ensuref(f != NULL, "flag_add: fatal error: %s", strerror(errno));
+    pf_flag *f = malloc(sizeof(pf_flag));
+    if (!f) {
+        fprintf(stderr, "fatal error: %s", strerror(errno));
+        abort();
+    }
 
     // Set some sentinel values for the cases where no argument was read
     switch (kind) {
-    case pfa_arg_int:
+    case pf_arg_int:
         *((int *) arg_ptr) = 0xdeadbeef;
         break;
-    case pfa_arg_str:
+    case pf_arg_str:
         *((const char **) arg_ptr) = "";
         break;
-    case pfa_arg_boolean:
+    case pf_arg_boolean:
         *((bool *) arg_ptr) = false;
         break;
-    case pfa_arg_none:
+    case pf_arg_none:
         break;  // nothing to do
     default:
         panicf("invalid argument kind %d", kind);
     }
 
-    *f = (pfa_flag){
+    *f = (pf_flag){
         .name = name,
         .description = description,
         .short_name = short_name,
@@ -222,7 +228,7 @@ void pfa_flag_add(pfa_argparser *parser, const char *name,
 // Print a parser usage message.
 // This is the output of the program when the --help or -h flag is invoked, and
 // is also shown on argument parsing errors.
-void pfa_print_usage(pfa_argparser *parser)
+void pf_print_usage(pf_argparser *parser)
 {
     printf("%s", parser->name);
     if (parser->description != NULL) {
@@ -232,7 +238,7 @@ void pfa_print_usage(pfa_argparser *parser)
 
     printf("Usage:\n");
     printf("    ");
-    if (parser->arg.kind == pfa_arg_none) {
+    if (parser->arg.kind == pf_arg_none) {
         printf("%s", parser->name);
 
         if (parser->subparser_count > 0) {
@@ -243,8 +249,7 @@ void pfa_print_usage(pfa_argparser *parser)
             printf(" <flags>");
         }
     } else {
-        printf("%s <%s>", parser->name,
-               pfa_argument_kind_str(parser->arg.kind));
+        printf("%s <%s>", parser->name, pf_argument_kind_str(parser->arg.kind));
 
         // No subparser_count check here, as a parser that takes an argument
         // is NOT allowed to have any subcommands
@@ -256,7 +261,7 @@ void pfa_print_usage(pfa_argparser *parser)
         if (parser->arg.description != NULL) {
             printf("\n\n");
             printf("Argument of type %s: %s",
-                   pfa_argument_kind_str(parser->arg.kind),
+                   pf_argument_kind_str(parser->arg.kind),
                    parser->arg.description);
         }
     }
@@ -267,7 +272,7 @@ void pfa_print_usage(pfa_argparser *parser)
         printf("    None\n");
     } else {
         for (int i = 0; i < parser->subparser_count; i++) {
-            pfa_argparser *subparser = parser->subparsers[i];
+            pf_argparser *subparser = parser->subparsers[i];
 
             printf("    ");
             printf("%s", subparser->name);
@@ -284,7 +289,7 @@ void pfa_print_usage(pfa_argparser *parser)
         printf("    None\n");
     } else {
         for (int i = 0; i < parser->flag_count; i++) {
-            pfa_flag *flag = parser->flags[i];
+            pf_flag *flag = parser->flags[i];
 
             printf("    ");
             printf("%s", flag->name);
@@ -303,13 +308,12 @@ void pfa_print_usage(pfa_argparser *parser)
 // Attempt to parse an argument. It is considered an error if no valid argument
 // is found.
 // Returns the number of arguments parsed on success, and -1 on error.
-static int pfa_parse_argument(pfa_argparser *parser, int argc,
-                              const char *argv[])
+static int pf_parse_argument(pf_argparser *parser, int argc, const char *argv[])
 {
-    if (argc == 0 && parser->arg.kind != pfa_arg_none &&
-        parser->arg.kind != pfa_arg_boolean) {
+    if (argc == 0 && parser->arg.kind != pf_arg_none &&
+        parser->arg.kind != pf_arg_boolean) {
         fprintf(stderr, "parse: %s argument for %s not provided\n",
-                pfa_argument_kind_str(parser->arg.kind), parser->name);
+                pf_argument_kind_str(parser->arg.kind), parser->name);
         return -1;
     }
 
@@ -318,12 +322,12 @@ static int pfa_parse_argument(pfa_argparser *parser, int argc,
     // Parse the argument
     // For now this just means consuming the thing
     switch (parser->arg.kind) {
-    case pfa_arg_none:
+    case pf_arg_none:
         break;
-    case pfa_arg_boolean:
+    case pf_arg_boolean:
         *((bool *) parser->arg._value) = true;
         break;
-    case pfa_arg_int: {
+    case pf_arg_int: {
         const char *arg = argv[0];
         char *endptr;
         errno = 0;
@@ -351,7 +355,7 @@ static int pfa_parse_argument(pfa_argparser *parser, int argc,
         argc--;
         break;
     }
-    case pfa_arg_str: {
+    case pf_arg_str: {
         const char *arg = argv[0];
         *((const char **) parser->arg._value) = arg;
 
@@ -369,12 +373,12 @@ static int pfa_parse_argument(pfa_argparser *parser, int argc,
 // Attempt to parse an argument. It is considered an error if no valid argument
 // is found.
 // Returns the number of arguments parsed on success, and -1 on error.
-static int pfa_parse_argument_flag(pfa_flag *flag, int argc, const char *argv[])
+static int pf_parse_argument_flag(pf_flag *flag, int argc, const char *argv[])
 {
-    if (argc == 0 && flag->arg.kind != pfa_arg_none &&
-        flag->arg.kind != pfa_arg_boolean) {
+    if (argc == 0 && flag->arg.kind != pf_arg_none &&
+        flag->arg.kind != pf_arg_boolean) {
         fprintf(stderr, "parse: %s argument for %s not provided\n",
-                pfa_argument_kind_str(flag->arg.kind), flag->name);
+                pf_argument_kind_str(flag->arg.kind), flag->name);
         return -1;
     }
 
@@ -383,12 +387,12 @@ static int pfa_parse_argument_flag(pfa_flag *flag, int argc, const char *argv[])
     // Parse the argument
     // For now this just means consuming the thing
     switch (flag->arg.kind) {
-    case pfa_arg_none:
+    case pf_arg_none:
         break;
-    case pfa_arg_boolean:
+    case pf_arg_boolean:
         *((bool *) flag->arg._value) = true;
         break;
-    case pfa_arg_int: {
+    case pf_arg_int: {
         const char *arg = argv[0];
         char *endptr;
         errno = 0;
@@ -416,7 +420,7 @@ static int pfa_parse_argument_flag(pfa_flag *flag, int argc, const char *argv[])
         argc--;
         break;
     }
-    case pfa_arg_str: {
+    case pf_arg_str: {
         const char *arg = argv[0];
         *((const char **) flag->arg._value) = arg;
 
@@ -434,7 +438,7 @@ static int pfa_parse_argument_flag(pfa_flag *flag, int argc, const char *argv[])
 // Parse flags if found. If no args are remaining it doesn't do anything.
 // Returns a whole number (0 or higher) on success, which is the number of flags
 // parsed. Returns -1 on error.
-static int pfa_parse_flags(pfa_argparser *parser, int argc, const char *argv[])
+static int pf_parse_flags(pf_argparser *parser, int argc, const char *argv[])
 {
     if (argc == 0)
         return 0;
@@ -445,7 +449,7 @@ static int pfa_parse_flags(pfa_argparser *parser, int argc, const char *argv[])
     while (argc > 0 &&
            (strncmp(argv[0], "--", 2) == 0 || strncmp(argv[0], "-", 1) == 0)) {
         const char *flag_name = argv[0];
-        pfa_flag *received_flag = NULL;
+        pf_flag *received_flag = NULL;
 
         for (int i = 0; i < parser->flag_count; i++) {
             if (strcmp(flag_name, parser->flags[i]->name) == 0 ||
@@ -458,7 +462,7 @@ static int pfa_parse_flags(pfa_argparser *parser, int argc, const char *argv[])
 
         if (received_flag == NULL) {
             fprintf(stderr, "parse: unknown flag %s\n", flag_name);
-            pfa_print_usage(parser);
+            pf_print_usage(parser);
             return -1;
         }
 
@@ -466,7 +470,7 @@ static int pfa_parse_flags(pfa_argparser *parser, int argc, const char *argv[])
         if (strcmp(received_flag->name, "--help") == 0 ||
             (received_flag->short_name != NULL &&
              strcmp(received_flag->short_name, "-h") == 0)) {
-            pfa_print_usage(parser);
+            pf_print_usage(parser);
             exit(0);
         }
 
@@ -474,7 +478,7 @@ static int pfa_parse_flags(pfa_argparser *parser, int argc, const char *argv[])
         argc--;
 
         // Try to parse argument
-        int skipped = pfa_parse_argument_flag(received_flag, argc, argv);
+        int skipped = pf_parse_argument_flag(received_flag, argc, argv);
         if (skipped == -1)
             return skipped;
 
@@ -485,7 +489,7 @@ static int pfa_parse_flags(pfa_argparser *parser, int argc, const char *argv[])
     return initial_argc - argc;
 }
 
-int pfa_argparse(pfa_argparser *parser, int argc, const char *argv[])
+int pf_argparse(pf_argparser *parser, int argc, const char *argv[])
 {
     int initial_argc = argc;
     int skipped;
@@ -498,7 +502,7 @@ int pfa_argparse(pfa_argparser *parser, int argc, const char *argv[])
     argc--;
 
     // Try to parse flags
-    skipped = pfa_parse_flags(parser, argc, argv);
+    skipped = pf_parse_flags(parser, argc, argv);
     if (skipped == -1)
         return skipped;
 
@@ -508,7 +512,7 @@ int pfa_argparse(pfa_argparser *parser, int argc, const char *argv[])
     // If the parser has any subparsers, parse them recursively
     if (argc > 0 && parser->subparser_count > 0) {
         const char *subcommand_name = argv[0];
-        pfa_argparser *received_subparser = NULL;
+        pf_argparser *received_subparser = NULL;
         for (int i = 0; i < parser->subparser_count; i++) {
             if (strcmp(subcommand_name, parser->subparsers[i]->name) == 0) {
                 received_subparser = parser->subparsers[i];
@@ -521,7 +525,7 @@ int pfa_argparse(pfa_argparser *parser, int argc, const char *argv[])
             goto die;
         }
 
-        skipped = pfa_argparse(received_subparser, argc, argv);
+        skipped = pf_argparse(received_subparser, argc, argv);
         if (skipped == -1)
             return skipped;
 
@@ -530,7 +534,7 @@ int pfa_argparse(pfa_argparser *parser, int argc, const char *argv[])
     }
 
     // Try to parse flags... again
-    skipped = pfa_parse_flags(parser, argc, argv);
+    skipped = pf_parse_flags(parser, argc, argv);
     if (skipped == -1)
         return skipped;
 
@@ -538,7 +542,7 @@ int pfa_argparse(pfa_argparser *parser, int argc, const char *argv[])
     argc -= skipped;
 
     // Try to parse argument
-    skipped = pfa_parse_argument(parser, argc, argv);
+    skipped = pf_parse_argument(parser, argc, argv);
     if (skipped == -1)
         goto die;
 
@@ -546,7 +550,7 @@ int pfa_argparse(pfa_argparser *parser, int argc, const char *argv[])
     argc -= skipped;
 
     // Parse any remaining flags...
-    skipped = pfa_parse_flags(parser, argc, argv);
+    skipped = pf_parse_flags(parser, argc, argv);
     if (skipped == -1)
         return skipped;
 
@@ -556,7 +560,7 @@ int pfa_argparse(pfa_argparser *parser, int argc, const char *argv[])
     return initial_argc - argc;
 
 die:
-    pfa_print_usage(parser);
+    pf_print_usage(parser);
     return -1;
 }
 

@@ -18,7 +18,13 @@ void showcase_pf_str(void)
         size_t len;
         rune next = str_iterator_next(&it, &len);
         printf("\tlen: %zu, cp: %d, printed: ", len, next);
-        rune_print(next);
+        char cps[4];
+        int n = rune_encode(next, cps);
+        if (n == -1) {
+            printf("<invalid>");
+        } else {
+            printf("%.*s", n, cps);
+        }
         putchar('\n');
     }
 
@@ -29,12 +35,12 @@ void showcase_pf_str(void)
     str_free(s);
 }
 
-#define PF_AP_IMPLEMENTATION
-#include "pf_ap.h"
+#define PF_ARG_IMPLEMENTATION
+#include "pf_arg.h"
 
-void showcase_pf_ap(int argc, const char *argv[])
+void showcase_pf_arg(int argc, const char *argv[])
 {
-    puts("---- PF_AP ----");
+    puts("---- PF_ARG ----");
 
     argparser *p =
         argparser_make(NULL, argv[0], "little test", arg_none, NULL, NULL);
@@ -61,5 +67,5 @@ void showcase_pf_ap(int argc, const char *argv[])
 int main(int argc, const char *argv[])
 {
     showcase_pf_str();
-    showcase_pf_ap(argc, argv);
+    showcase_pf_arg(argc, argv);
 }

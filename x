@@ -14,7 +14,6 @@ class Lib:
     header: Path
     impl_macro: str
     one_line_description: str
-    declaration_qualifier: str
     short_name_disabler_macro: str | None
 
 
@@ -24,16 +23,14 @@ libs = [
         header=src / "pf_str.h",
         impl_macro="PF_STR_IMPLEMENTATION",
         one_line_description="string and string view manipulation library",
-        declaration_qualifier="pfs",
         short_name_disabler_macro="PF_STR_NO_SHORT_NAMES",
     ),
     Lib(
-        source=src / "pf_ap.c",
-        header=src / "pf_ap.h",
-        impl_macro="PF_AP_IMPLEMENTATION",
+        source=src / "pf_arg.c",
+        header=src / "pf_arg.h",
+        impl_macro="PF_ARG_IMPLEMENTATION",
         one_line_description="argument parsing library inspired by Python's argparse",
-        declaration_qualifier="pfa",
-        short_name_disabler_macro="PF_AP_NO_SHORT_NAMES",
+        short_name_disabler_macro="PF_ARG_NO_SHORT_NAMES",
     ),
 ]
 
@@ -45,25 +42,24 @@ def build(_args: argparse.Namespace):
         header = lib.header
         impl_macro = lib.impl_macro
         one_line_description = lib.one_line_description
-        qualifier = lib.declaration_qualifier
         short_name_disabler_macro = lib.short_name_disabler_macro
         output = basename(lib.header)
 
         lines = [
-            f"/* {basename(header)} - {one_line_description}\n",
+            f"/* {output} - {one_line_description}\n",
             "\n",
             "   To use this library, do this in exactly *one* C file:\n",
             "\n",
             f"   #define {impl_macro}\n",
-            f'   #include "{basename(header)}"\n',
+            f'   #include "{output}"\n',
         ]
 
         if short_name_disabler_macro is not None:
             lines += [
                 "\n",
                 f"   For convenience of use, the library exposes shorter declarations not\n",
-                f'   qualified with the "{qualifier}_" prefix. If these conflict with names in your\n',
-                "   code, define this flag before including the header: \n",
+                f'   qualified with the "pf_" prefix. If these conflict with names in your\n',
+                "   code, define this flag before including the header:\n",
                 "\n",
                 f"   #define {short_name_disabler_macro}\n",
             ]
@@ -80,6 +76,16 @@ def build(_args: argparse.Namespace):
         source_lines = []
         with open(source, "r") as f:
             source_lines = f.readlines()
+
+        # strip header include and empty line after that
+        # including the corresponding header at the first line and then having
+        # a blank line after is a convention for pf
+        # doing this stripping is not strictly necessary but keeps things cleaner
+        if (
+            source_lines[0].startswith(f'#include "{output}"')
+            and source_lines[1].strip() == ""
+        ):
+            source_lines = source_lines[2:]
 
         lines.append(f"#ifdef {impl_macro}\n")
         lines += source_lines

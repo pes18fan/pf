@@ -17,4 +17,4 @@ execute
 ## Libraries
 
 - **pf_str**: Simple strings and string views.
-- **pf_ap**: Argument parsing library.
+- **pf_arg**: Argument parsing library.
