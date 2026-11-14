@@ -8,9 +8,20 @@ USAGE
     #define "pf.h"
 
 SECTIONS
-    - Panics and assertions
-    - Strings and string views (`str` and `strv`)
-    - CLI argument parsing (`argparse`)
+    PANICS AND ASSERTIONS
+        A small set of functions (or rather macros) for panics (panic, panicf)
+        and assertions (assert, assertf) and aborting the program (fatal).
+
+    STRINGS AND STRING VIEWS
+        A string type (str) for strings with length information as well as a
+        string view type (strv) to easily slice the string, along
+        with various functions for working with them.
+
+    CLI ARGUMENT PARSING
+        Some simple machinery for parsing command line arguments.
+
+HOW TO USE
+    See usage.c in the root of the repository for some simple examples.
 
 SHORT NAMES
     For convenience of use, the library exposes shorter declarations not

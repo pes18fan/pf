@@ -1,5 +1,4 @@
 // Just a showcase
-// Build the headers using `x` then try building and running this!
 #include <stdbool.h>
 #include <stdio.h>
 
