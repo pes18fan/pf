@@ -4,14 +4,14 @@
 #include <stdio.h>
 
 #define PF_STR_IMPLEMENTATION
-#include "pf_str.h"
+#include "src/pf_str.h"
 
 void showcase_pf_str(void)
 {
     puts("---- PF_STR ----");
 
     str s = str_new_alloc_formatted("Hello, %s!", "संसार");
-    puts(CSTRING(s));
+    puts(str_to_cstring(s));
     str_iterator it = str_iterator_new(s);
     puts("each codepoint:");
     while (!str_iterator_is_done(it)) {
@@ -36,7 +36,7 @@ void showcase_pf_str(void)
 }
 
 #define PF_ARG_IMPLEMENTATION
-#include "pf_arg.h"
+#include "src/pf_arg.h"
 
 void showcase_pf_arg(int argc, const char *argv[])
 {
