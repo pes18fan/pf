@@ -1,10 +1,11 @@
 # pf
 
-Single-header libraries for C.
+Single-header standard library replacement for C.
 
-Still very incomplete!
+Still VERY incomplete!
 
-## Libraries
+## What does it provide?
 
-- **pf_str**: Simple strings and string views.
-- **pf_arg**: Argument parsing library.
+- Panics and assertions.
+- Strings and string views.
+- A CLI argument parser.

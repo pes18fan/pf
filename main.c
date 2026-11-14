@@ -3,8 +3,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define PF_STR_IMPLEMENTATION
-#include "src/pf_str.h"
+#define PF_IMPLEMENTATION
+#include "pf.h"
 
 void showcase_pf_str(void)
 {
@@ -35,24 +35,23 @@ void showcase_pf_str(void)
     str_free(s);
 }
 
-#define PF_ARG_IMPLEMENTATION
-#include "src/pf_arg.h"
-
 void showcase_pf_arg(int argc, const char *argv[])
 {
     puts("---- PF_ARG ----");
 
-    argparser *p =
-        argparser_make(NULL, argv[0], "little test", arg_none, NULL, NULL);
+    argparser *p = argparser_make(NULL, argv[0], "little test",
+                                  argparser_arg_none, NULL, NULL);
 
-    flag_add(p, "--test", "-t", "just a test", arg_none, NULL, NULL);
-    flag_add(p, "--test2", "-d", "just another test", arg_none, NULL, NULL);
+    argparser_flag_add(p, "--test", "-t", "just a test", argparser_arg_none,
+                       NULL, NULL);
+    argparser_flag_add(p, "--test2", "-d", "just another test",
+                       argparser_arg_none, NULL, NULL);
 
     const char *a;
-    argparser *another =
-        argparser_make(p, "hewwo", "another test", arg_str, &a, "a string");
-    flag_add(another, "--heh", "-j", "just another another test", arg_none,
-             NULL, NULL);
+    argparser *another = argparser_make(p, "hewwo", "another test",
+                                        argparser_arg_str, &a, "a string");
+    argparser_flag_add(another, "--heh", "-j", "just another another test",
+                       argparser_arg_none, NULL, NULL);
 
     int parsed = argparse(p, argc, argv);
     argparser_destroy(p);
