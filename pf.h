@@ -133,7 +133,8 @@ static void fputi(int n, FILE *stream)
 
 // End the program with a formatted error message.
 // If do_abort is true, the program aborts instead of exiting and avoids
-// writing formatting the arguments, only writing the prefix and format string.
+// calling any formatted printing functions, only writing the prefix and
+// format string.
 static noreturn void panic_impl(const char *prefix, const char *file, int line,
                                 bool do_abort, const char *fmt, ...)
 {
