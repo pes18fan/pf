@@ -531,7 +531,9 @@ int pf_argparse(pf_argparser *parser, int argc, const char *argv[]);
 // Get the number of items the given pf_list can currently hold.
 #define pf_list_cap(l) ((l) == NULL ? 0 : (_PF_LIST_HEADER(l))[1])
 
-// Add the provided item to the end of the list.
+// Add the provided item to the end of the list `l`.
+// `l` MUST be a variable that refers to a pf_list, unexpected bad things will
+// happen if it is not!
 // Allocates on the heap if the provided list is empty or if it doesn't have
 // enough capacity for the new item.
 #define pf_list_append(l, item)                                                \
@@ -576,6 +578,8 @@ int pf_argparse(pf_argparser *parser, int argc, const char *argv[]);
     } while (0)
 
 // Remove the last element from the list and return it.
+// `l` MUST be a variable that refers to a pf_list, unexpected bad things will
+// happen if it is not!
 // If the given list is of size 0, panics.
 #define pf_list_pop(l)                  \
     (pf_list_len(l) > 0                 \
@@ -583,6 +587,8 @@ int pf_argparse(pf_argparser *parser, int argc, const char *argv[]);
          : (pf_panic("attempt to pop a pf_list that is empty"), (l)[0]))
 
 // Free the heap memory of the provided pf_list.
+// `l` MUST be a variable that refers to a pf_list, unexpected bad things will
+// happen if it is not!
 // It is safe to pass an empty pf_list here.
 #define pf_list_free(l)                                         \
     do {                                                        \
