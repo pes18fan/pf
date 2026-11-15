@@ -168,13 +168,9 @@ int pf_argparse(pf_argparser_t *parser, int argc, const char *argv[]);
 
 #endif
 
-#ifndef PF_ARGPARSE_IMPLEMENTATION
+#ifdef PF_ARGPARSE_IMPLEMENTATION
 #ifndef _PF_ARGPARSE_IMPLEMENTED
 #define _PF_ARGPARSE_IMPLEMENTED
-
-/// ----------------
-/// CLI argument parsing
-/// ----------------
 
 #include <errno.h>
 #include <limits.h>
@@ -184,7 +180,7 @@ int pf_argparse(pf_argparser_t *parser, int argc, const char *argv[]);
 #include <stdlib.h>
 #include <string.h>
 
-static inline const char *pf_argument_kind_str(pf_argparser_arg_kind_t k)
+static const char *pf_argument_kind_str(pf_argparser_arg_kind_t k)
 {
     switch (k) {
     case pf_argparser_arg_none:
