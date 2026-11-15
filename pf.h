@@ -20,6 +20,9 @@ SECTIONS
     CLI ARGUMENT PARSING
         Some simple machinery for parsing command line arguments.
 
+    LISTS
+        Lists / dynamic arrays for arbitrary types.
+
 HOW TO USE
     See usage.c in the root of the repository for some simple examples.
 
@@ -89,6 +92,14 @@ SHORT NAMES
 #define argparser_flag_add pf_argparser_flag_add
 #define argparser_print_usage pf_argparser_print_usage
 #define argparse pf_argparse
+#define LIST_INITIAL_CAP PF_LIST_INITIAL_CAP
+#define list pf_list
+#define list_init pf_list_init
+#define list_len pf_list_len
+#define list_cap pf_list_cap
+#define list_append pf_list_append
+#define list_pop pf_list_pop
+#define list_free pf_list_free
 #endif  // PF_NO_SHORT_NAMES
 
 /// ----------------
@@ -487,6 +498,100 @@ void pf_argparser_print_usage(pf_argparser *parser);
 // invalid argument kind, or invalid `argv`), it prints the issue to stderr and
 // exits the program with status 1.
 int pf_argparse(pf_argparser *parser, int argc, const char *argv[]);
+
+/// ----------------
+/// Lists
+/// ----------------
+
+#include <stdalign.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+// Starting size of a pf_list after the first append.
+#define PF_LIST_INITIAL_CAP 8
+
+#define _PF_LIST_ALIGNMENT alignof(max_align_t)
+#define _PF_LIST_HEADER_SIZE                                                \
+    (((2 * sizeof(size_t) + _PF_LIST_ALIGNMENT - 1) / _PF_LIST_ALIGNMENT) * \
+     _PF_LIST_ALIGNMENT)
+#define _PF_LIST_HEADER(l) \
+    ((size_t *) ((unsigned char *) (l) - _PF_LIST_HEADER_SIZE))
+
+// Type of a growable dynamic array for a certain type T.
+// T can be any type, except for over-aligned types; they are not supported.
+#define pf_list(T) T *
+
+// Create a new empty pf_list.
+#define pf_list_init(T) (T *) NULL
+
+// Get the number of items in the given pf_list.
+#define pf_list_len(l) ((l) == NULL ? 0 : (_PF_LIST_HEADER(l))[0])
+
+// Get the number of items the given pf_list can currently hold.
+#define pf_list_cap(l) ((l) == NULL ? 0 : (_PF_LIST_HEADER(l))[1])
+
+// Add the provided item to the end of the list.
+// Allocates on the heap if the provided list is empty or if it doesn't have
+// enough capacity for the new item.
+#define pf_list_append(l, item)                                                \
+    do {                                                                       \
+        if ((l) == NULL) {                                                     \
+            void *buf = malloc(_PF_LIST_HEADER_SIZE +                          \
+                               (PF_LIST_INITIAL_CAP * sizeof(*(l))));          \
+            if (!buf) {                                                        \
+                pf_fatal("out of memory!");                                    \
+            }                                                                  \
+            size_t *header = buf;                                              \
+            header[0] = 0;                                                     \
+            header[1] = PF_LIST_INITIAL_CAP;                                   \
+            (l) = (void *) ((unsigned char *) buf + _PF_LIST_HEADER_SIZE);     \
+        }                                                                      \
+        size_t *header = _PF_LIST_HEADER(l);                                   \
+        size_t len = header[0];                                                \
+        size_t cap = header[1];                                                \
+        if (len >= cap) {                                                      \
+            if (cap > (SIZE_MAX / 2)) {                                        \
+                pf_panicf("attempt to grow a pf_list over capacity limit of "  \
+                          "%zu items",                                         \
+                          SIZE_MAX);                                           \
+            }                                                                  \
+            size_t newcap = cap * 2;                                           \
+            if (newcap > (SIZE_MAX / sizeof(*(l)))) {                          \
+                pf_panicf("attempt to grow a pf_list over byte size limit of " \
+                          "%zu bytes",                                         \
+                          SIZE_MAX);                                           \
+            }                                                                  \
+            void *buf = realloc(header, _PF_LIST_HEADER_SIZE +                 \
+                                            (newcap * sizeof(*(l))));          \
+            if (!buf) {                                                        \
+                pf_fatal("out of memory!");                                    \
+            }                                                                  \
+            header = buf;                                                      \
+            header[1] = newcap;                                                \
+            (l) = (void *) ((unsigned char *) buf + _PF_LIST_HEADER_SIZE);     \
+        }                                                                      \
+        l[len] = (item);                                                       \
+        header[0] = len + 1;                                                   \
+    } while (0)
+
+// Remove the last element from the list and return it.
+// If the given list is of size 0, panics.
+#define pf_list_pop(l)                  \
+    (pf_list_len(l) > 0                 \
+         ? (l)[--_PF_LIST_HEADER(l)[0]] \
+         : (pf_panic("attempt to pop a pf_list that is empty"), (l)[0]))
+
+// Free the heap memory of the provided pf_list.
+// It is safe to pass an empty pf_list here.
+#define pf_list_free(l)                                         \
+    do {                                                        \
+        if ((l) != NULL) {                                      \
+            free((unsigned char *) (l) - _PF_LIST_HEADER_SIZE); \
+            (l) = NULL;                                         \
+        }                                                       \
+    } while (0)
+
 #endif  // PF_H
 
 /// ----------------
