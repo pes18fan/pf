@@ -98,6 +98,9 @@ void showcase_pf_list(void)
     list_free(l2);
 }
 
+#define PF_ARGPARSE_IMPLEMENTATION
+#include "pf_argparse.h"
+
 void showcase_pf_arg(void)
 {
     puts("---- PF_ARG ----");
