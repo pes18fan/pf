@@ -114,7 +114,7 @@ SHORT NAMES
 #include <stdnoreturn.h>
 
 // Print an integer to `stream`.
-static void fputi(int n, FILE *stream)
+static inline void fputi(int n, FILE *stream)
 {
     char buf[12];
     char *p = buf + sizeof buf;
@@ -135,8 +135,9 @@ static void fputi(int n, FILE *stream)
 // If do_abort is true, the program aborts instead of exiting and avoids
 // calling any formatted printing functions, only writing the prefix and
 // format string.
-static noreturn void panic_impl(const char *prefix, const char *file, int line,
-                                bool do_abort, const char *fmt, ...)
+noreturn static inline void panic_impl(const char *prefix, const char *file,
+                                       int line, bool do_abort, const char *fmt,
+                                       ...)
 {
     if (do_abort) {
         fputs(prefix, stderr);
@@ -190,6 +191,11 @@ static noreturn void panic_impl(const char *prefix, const char *file, int line,
             panic_impl("assertion `" #expr "` failed", __FILE__, __LINE__, \
                        false, (fmt), __VA_ARGS__);                         \
     } while (0)
+
+// End the program with a formatted error message, indicating that an
+// implementation is not yet done.
+#define pf_todo(message) \
+    panic_impl("todo", __FILE__, __LINE__, false, (message))
 
 /// ----------------
 /// Strings and string views
