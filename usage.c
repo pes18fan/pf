@@ -128,13 +128,38 @@ void showcase_pf_arg(void)
     if (parsed == -1) {
         puts("failed to parse args!");
     } else {
-        printf("got: %s", a);
+        printf("got: %s\n", a);
     }
 }
 
-int main(int argc, const char *argv[])
+#define PF_ALLOCATOR_IMPLEMENTATION
+#include "pf_allocator.h"
+
+void showcase_pf_allocator(void)
+{
+    puts("---- PF_ALLOCATOR ----");
+
+    arena_allocator_t arena;
+    uint8_t buf[1024];
+    arena_allocator_init(&arena, buf, sizeof buf);
+    allocator_t alloc = pf_arena_allocator(&arena);
+
+    char *mem = mem_alloc(&alloc, 10);
+    strv_t str = STRLIT("henlo");
+    for (size_t i = 0; i < str.len; i++) {
+        mem[i] = str_index_byte(str, i);
+        printf("we have: ");
+        putchar(mem[i]);
+        putchar('\n');
+    }
+
+    mem_free_all(&alloc);
+}
+
+int main(void)
 {
     showcase_pf_str();
     showcase_pf_list();
     showcase_pf_arg();
+    showcase_pf_allocator();
 }
