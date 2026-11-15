@@ -168,8 +168,8 @@ static inline void fputi(int n, FILE *stream)
 // calling any formatted printing functions, only writing the prefix and
 // format string.
 noreturn static inline void panic_impl(const char *prefix, const char *file,
-                                       int line, bool do_abort, const char *fmt,
-                                       ...)
+                                       const char *function_name, int line,
+                                       bool do_abort, const char *fmt, ...)
 {
     if (do_abort) {
         fputs(prefix, stderr);
@@ -182,6 +182,9 @@ noreturn static inline void panic_impl(const char *prefix, const char *file,
         fputs(" in file ", stderr);
         fputs(file, stderr);
         fputc('\n', stderr);
+        fputs("    in function ", stderr);
+        fputs(function_name, stderr);
+        fputc('\n', stderr);
         abort();
     } else {
         va_list list;
@@ -190,44 +193,88 @@ noreturn static inline void panic_impl(const char *prefix, const char *file,
         vfprintf(stderr, fmt, list);
         va_end(list);
         putc('\n', stderr);
-        fprintf(stderr, "    at line %d in file %s\n", line, file);
+        fprintf(stderr,
+                "    at line %d in file %s\n"
+                "    in function %s\n",
+                line, file, function_name);
         exit(1);
     }
 }
 
 // End the program with an error message.
 #define pf_panic(message) \
-    panic_impl("panic", __FILE__, __LINE__, false, (message))
+    panic_impl("panic", __FILE__, __func__, __LINE__, false, (message))
 
 // End the program with a formatted error message.
 #define pf_panicf(fmt, ...) \
-    panic_impl("panic", __FILE__, __LINE__, false, (fmt), __VA_ARGS__)
+    panic_impl("panic", __FILE__, __func__, __LINE__, false, (fmt), __VA_ARGS__)
 
 // Abort the program with an error message.
 #define pf_fatal(message) \
-    panic_impl("fatal", __FILE__, __LINE__, true, (message))
+    panic_impl("fatal", __FILE__, __func__, __LINE__, true, (message))
 
 // Assert the truth of a condition, panicking with the given error message if it
 // is false.
 #define pf_assert(expr, message)                                           \
     do {                                                                   \
         if (!(expr))                                                       \
-            panic_impl("assertion `" #expr "` failed", __FILE__, __LINE__, \
-                       false, (message));                                  \
+            panic_impl("assertion `" #expr "` failed", __FILE__, __func__, \
+                       __LINE__, false, (message));                        \
     } while (0)
 
 // Same as pf_assert but prints a formatted error message on failure.
 #define pf_assertf(expr, fmt, ...)                                         \
     do {                                                                   \
         if (!(expr))                                                       \
-            panic_impl("assertion `" #expr "` failed", __FILE__, __LINE__, \
-                       false, (fmt), __VA_ARGS__);                         \
+            panic_impl("assertion `" #expr "` failed", __FILE__, __func__, \
+                       __LINE__, false, (fmt), __VA_ARGS__);               \
     } while (0)
 
 // End the program with a formatted error message, indicating that an
 // implementation is not yet done.
 #define pf_todo(message) \
-    panic_impl("todo", __FILE__, __LINE__, false, (message))
+    panic_impl("todo", __FILE__, __func__, __LINE__, false, (message))
+
+/// ----------------
+/// Memory stuff
+/// ----------------
+
+#define BYTES(n) (n)
+#define KILOBYTES(n) ((n) << 10)
+#define MEGABYTES(n) ((n) << 20)
+#define GIGABYTES(n) ((uint64_t) (n) << 30)
+#define TERABYTES(n) ((uint64_t) (n) << 40)
+
+static inline bool pf_is_power_of_two(size_t x)
+{ return (x & (x - 1)) == 0; }
+
+#define PF_DEFAULT_ALIGNMENT alignof(max_align_t)
+
+static inline size_t pf_align_up_s(size_t size, size_t alignment)
+{
+    pf_assert(pf_is_power_of_two(alignment),
+              "alignment must be a power of two");
+    size_t s = size;
+    size_t a = alignment;
+    size_t modulo = s & (a - 1);
+    if (modulo != 0) {
+        s += a - modulo;
+    }
+    return s;
+}
+
+static inline uintptr_t pf_align_up_u(uintptr_t ptr, size_t alignment)
+{
+    pf_assert(pf_is_power_of_two(alignment),
+              "alignment must be a power of two");
+    uintptr_t p = ptr;
+    uintptr_t a = (uintptr_t) alignment;
+    uintptr_t modulo = p & (a - 1);
+    if (modulo != 0) {
+        p += a - modulo;
+    }
+    return p;
+}
 
 /// ----------------
 /// Strings and string views
@@ -447,19 +494,10 @@ bool pf_str_iterator_is_done(pf_str_iterator_t it);
 // Starting size of a pf_list_t after the first append.
 #define PF_LIST_INITIAL_CAP 8
 
-static inline bool is_power_of_two(size_t x)
-{ return !(x & (x - 1)); }
+#define _PF_LIST_HEADER_SIZE \
+    pf_align_up_s(2 * sizeof(size_t), PF_DEFAULT_ALIGNMENT)
 
-static inline size_t align_up(size_t size, size_t alignment)
-{
-    pf_assert(is_power_of_two(alignment), "alignment must be a power of two");
-    return (((size + alignment - 1) / alignment) * alignment);
-}
-
-#define _PF_LIST_HEADER_SIZE align_up(2 * sizeof(size_t), alignof(max_align_t))
-
-#define _PF_LIST_HEADER(l) \
-    ((size_t *) ((unsigned char *) (l) - _PF_LIST_HEADER_SIZE))
+#define _PF_LIST_HEADER(l) ((size_t *) ((uint8_t *) (l) - _PF_LIST_HEADER_SIZE))
 
 // Type of a growable dynamic array for a certain type T.
 // T can be any type, except for an over-aligned type; they are not supported.
@@ -491,7 +529,7 @@ static inline size_t align_up(size_t size, size_t alignment)
             size_t *header = buf;                                          \
             header[0] = 0;                                                 \
             header[1] = PF_LIST_INITIAL_CAP;                               \
-            (l) = (void *) ((unsigned char *) buf + _PF_LIST_HEADER_SIZE); \
+            (l) = (void *) ((uint8_t *) buf + _PF_LIST_HEADER_SIZE);       \
         }                                                                  \
         size_t *header = _PF_LIST_HEADER(l);                               \
         size_t len = header[0];                                            \
@@ -517,7 +555,7 @@ static inline size_t align_up(size_t size, size_t alignment)
             }                                                              \
             header = buf;                                                  \
             header[1] = newcap;                                            \
-            (l) = (void *) ((unsigned char *) buf + _PF_LIST_HEADER_SIZE); \
+            (l) = (void *) ((uint8_t *) buf + _PF_LIST_HEADER_SIZE);       \
         }                                                                  \
         l[len] = (item);                                                   \
         header[0] = len + 1;                                               \
@@ -549,12 +587,12 @@ static inline size_t align_up(size_t size, size_t alignment)
 // `l` MUST be a variable that refers to a pf_list_t, unexpected bad things will
 // happen if it is not!
 // It is safe to pass an empty pf_list_t here.
-#define pf_list_free(l)                                         \
-    do {                                                        \
-        if ((l) != NULL) {                                      \
-            free((unsigned char *) (l) - _PF_LIST_HEADER_SIZE); \
-            (l) = NULL;                                         \
-        }                                                       \
+#define pf_list_free(l)                                   \
+    do {                                                  \
+        if ((l) != NULL) {                                \
+            free((uint8_t *) (l) - _PF_LIST_HEADER_SIZE); \
+            (l) = NULL;                                   \
+        }                                                 \
     } while (0)
 
 #endif  // PF_H
@@ -563,7 +601,7 @@ static inline size_t align_up(size_t size, size_t alignment)
 /// Implementation
 /// ----------------
 
-#ifndef PF_IMPLEMENTATION
+#ifdef PF_IMPLEMENTATION
 #ifndef _PF_IMPLEMENTED
 #define _PF_IMPLEMENTED
 
