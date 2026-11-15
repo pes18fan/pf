@@ -98,6 +98,7 @@ SHORT NAMES
 #define list_len pf_list_len
 #define list_cap pf_list_cap
 #define list_append pf_list_append
+#define list_get pf_list_get
 #define list_pop pf_list_pop
 #define list_free pf_list_free
 #endif  // PF_NO_SHORT_NAMES
@@ -519,7 +520,8 @@ int pf_argparse(pf_argparser *parser, int argc, const char *argv[]);
     ((size_t *) ((unsigned char *) (l) - _PF_LIST_HEADER_SIZE))
 
 // Type of a growable dynamic array for a certain type T.
-// T can be any type, except for over-aligned types; they are not supported.
+// T can be any type, except for an over-aligned type; they are not supported.
+// Pointers to elements within a list are NOT guaranteed to stay valid.
 #define pf_list(T) T *
 
 // Create a new empty pf_list.
@@ -576,6 +578,19 @@ int pf_argparse(pf_argparser *parser, int argc, const char *argv[]);
         l[len] = (item);                                                       \
         header[0] = len + 1;                                                   \
     } while (0)
+
+// Get an element from the list `l` at index `i`.
+// It is essentially the same as l[i], however it is bounds checked and will
+// therefore panic if the given index is outside the bounds of the list.
+// `l` MUST be a variable that refers to a pf_list, unexpected bad things will
+// happen if it is not!
+#define pf_list_get(l, i)                                                  \
+    (i >= 0 && i < pf_list_len(l)                                          \
+         ? (l)[i]                                                          \
+         : (pf_panicf(                                                     \
+                "attempt to index a pf_list of length %zu with index %zu", \
+                pf_list_len(l), i),                                        \
+            (l)[0]))
 
 // Remove the last element from the list and return it.
 // `l` MUST be a variable that refers to a pf_list, unexpected bad things will

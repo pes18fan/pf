@@ -55,7 +55,10 @@ void showcase_pf_list(void)
     printf("    cap: %zu\n", list_cap(l1));
     printf("    items:\n");
     for (size_t i = 0; i < list_len(l1); i++) {
-        printf("        %ld\n", l1[i]);
+        // You can use l1[i] too, but list_get is bounds checked and will panic
+        // if `i` is invalid.
+        int64_t item = list_get(l1, i);
+        printf("        %ld\n", item);
     }
     printf("    popped one: %ld\n", list_pop(l1));
     printf("    popped another: %ld\n", list_pop(l1));
