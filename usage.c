@@ -9,13 +9,13 @@ void showcase_pf_str(void)
 {
     puts("---- PF_STR ----");
 
-    str s = str_new_alloc_formatted("Hello, %s!", "संसार");
+    str_t s = str_new_alloc_formatted("Hello, %s!", "संसार");
     puts(str_to_cstring(s));
-    str_iterator it = str_iterator_new(s);
+    str_iterator_t it = str_iterator_new(s);
     puts("each codepoint:");
     while (!str_iterator_is_done(it)) {
         size_t len;
-        rune next = str_iterator_next(&it, &len);
+        rune_t next = str_iterator_next(&it, &len);
         printf("\tlen: %zu, cp: %d, printed: ", len, next);
         char cps[4];
         int n = rune_encode(next, cps);
@@ -27,7 +27,7 @@ void showcase_pf_str(void)
         putchar('\n');
     }
 
-    strv s2 = STRLIT("Hallo, Welt!");
+    strv_t s2 = STRLIT("Hallo, Welt!");
     bool equal = str_equal(STRTOVIEW(s), s2);
     printf("equal? %s\n", equal ? "yay" : "nay");
 
@@ -39,7 +39,7 @@ void showcase_pf_list(void)
     puts("---- PF_LIST ----");
 
     // A list of int64s
-    list(int64_t) l1 = list_init(int64_t);
+    list_t(int64_t) l1 = list_init(int64_t);
     printf("int64_t list:\n");
     list_append(l1, 14);
     list_append(l1, 25);
@@ -66,9 +66,9 @@ void showcase_pf_list(void)
     list_free(l1);
 
     // A list of string views
-    list(pf_strv) l2;
+    list_t(pf_strv_t) l2;
     printf("string view list:\n");
-    l2 = list_init(pf_strv);
+    l2 = list_init(pf_strv_t);
     list_append(l2, STRLIT("a"));
     list_append(l2, STRLIT("string"));
     list_append(l2, STRLIT("another"));
@@ -108,8 +108,8 @@ void showcase_pf_arg(void)
     const char *argv[] = { "./program", "-t", "hewwo", "abcd" };
     int argc = 4;
 
-    argparser *p = argparser_make(NULL, argv[0], "little test",
-                                  argparser_arg_none, NULL, NULL);
+    argparser_t *p = argparser_make(NULL, argv[0], "little test",
+                                    argparser_arg_none, NULL, NULL);
 
     argparser_flag_add(p, "--test", "-t", "just a test", argparser_arg_none,
                        NULL, NULL);
@@ -117,8 +117,8 @@ void showcase_pf_arg(void)
                        argparser_arg_none, NULL, NULL);
 
     const char *a;
-    argparser *another = argparser_make(p, "hewwo", "another test",
-                                        argparser_arg_str, &a, "a string");
+    argparser_t *another = argparser_make(p, "hewwo", "another test",
+                                          argparser_arg_str, &a, "a string");
     argparser_flag_add(another, "--heh", "-j", "just another another test",
                        argparser_arg_none, NULL, NULL);
 
