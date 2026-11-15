@@ -113,11 +113,29 @@ SHORT NAMES
 #include <stdlib.h>
 #include <stdnoreturn.h>
 
+// Print an integer to `stream`.
+static void fputi(int n, FILE *stream)
+{
+    char buf[12];
+    char *p = buf + sizeof buf;
+    unsigned u = n < 0 ? -(unsigned) n : (unsigned) n;
+
+    do {
+        *--p = '0' + u % 10;
+    } while (u /= 10);
+    if (n < 0)
+        *--p = '-';
+
+    size_t len = buf + sizeof buf - p;
+    for (size_t i = 0; i < len; i++)
+        fputc(p[i], stream);
+}
+
 // End the program with a formatted error message.
 // If do_abort is true, the program aborts instead of exiting and avoids
 // writing formatting the arguments, only writing the prefix and format string.
-static noreturn void panic_impl(const char *prefix, bool do_abort,
-                                const char *fmt, ...)
+static noreturn void panic_impl(const char *prefix, const char *file, int line,
+                                bool do_abort, const char *fmt, ...)
 {
     if (do_abort) {
         fputs(prefix, stderr);
@@ -125,41 +143,51 @@ static noreturn void panic_impl(const char *prefix, bool do_abort,
         fputc(' ', stderr);
         fputs(fmt, stderr);
         fputc('\n', stderr);
+        fputs("    at line ", stderr);
+        fputi(line, stderr);
+        fputs(" in file ", stderr);
+        fputs(file, stderr);
+        fputc('\n', stderr);
         abort();
     } else {
         va_list list;
         va_start(list, fmt);
         fprintf(stderr, "%s: ", prefix);
         vfprintf(stderr, fmt, list);
-        putc('\n', stderr);
         va_end(list);
+        putc('\n', stderr);
+        fprintf(stderr, "    at line %d in file %s\n", line, file);
         exit(1);
     }
 }
 
 // End the program with an error message.
-#define pf_panic(message) panic_impl("panic", false, (message))
+#define pf_panic(message) \
+    panic_impl("panic", __FILE__, __LINE__, false, (message))
 
 // End the program with a formatted error message.
-#define pf_panicf(fmt, ...) panic_impl("panic", false, (fmt), __VA_ARGS__)
+#define pf_panicf(fmt, ...) \
+    panic_impl("panic", __FILE__, __LINE__, false, (fmt), __VA_ARGS__)
 
 // Abort the program with an error message.
-#define pf_fatal(message) panic_impl("fatal", true, (message))
+#define pf_fatal(message) \
+    panic_impl("fatal", __FILE__, __LINE__, true, (message))
 
 // Assert the truth of a condition, panicking with the given error message if it
 // is false.
-#define pf_assert(expr, message)                                          \
-    do {                                                                  \
-        if (!(expr))                                                      \
-            panic_impl("assertion `" #expr "` failed", false, (message)); \
+#define pf_assert(expr, message)                                           \
+    do {                                                                   \
+        if (!(expr))                                                       \
+            panic_impl("assertion `" #expr "` failed", __FILE__, __LINE__, \
+                       false, (message));                                  \
     } while (0)
 
 // Same as pf_assert but prints a formatted error message on failure.
-#define pf_assertf(expr, fmt, ...)                                   \
-    do {                                                             \
-        if (!(expr))                                                 \
-            panic_impl("assertion `" #expr "` failed", false, (fmt), \
-                       __VA_ARGS__);                                 \
+#define pf_assertf(expr, fmt, ...)                                         \
+    do {                                                                   \
+        if (!(expr))                                                       \
+            panic_impl("assertion `" #expr "` failed", __FILE__, __LINE__, \
+                       false, (fmt), __VA_ARGS__);                         \
     } while (0)
 
 /// ----------------
