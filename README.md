@@ -8,4 +8,5 @@ Still VERY incomplete!
 
 - Panics and assertions.
 - Strings and string views.
+- Type generic lists.
 - A CLI argument parser.
