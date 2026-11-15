@@ -51,6 +51,14 @@ SHORT NAMES
 #define assertf pf_assertf
 #undef todo
 #define todo pf_todo
+#undef is_power_of_two
+#define is_power_of_two pf_is_power_of_two
+#undef DEFAULT_ALIGNMENT
+#define DEFAULT_ALIGNMENT PF_DEFAULT_ALIGNMENT
+#undef align_up_s
+#define align_up_s pf_align_up_s
+#undef align_up_u
+#define align_up_u pf_align_up_u
 #undef str_t
 #define str_t pf_str_t
 #undef strv_t
