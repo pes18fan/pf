@@ -10,7 +10,7 @@ void showcase_pf_str(void)
     puts("---- PF_STR ----");
 
     // NULL first param, to use the default allocator
-    str_t s = str_new_alloc_formatted(NULL, "Hello, %s!", "संसार");
+    str_t s = str_new_formatted(NULL, "Hello, %s!", "संसार");
     puts(str_to_cstring(s));
     str_iterator_t it = str_iterator_new(s);
     puts("each codepoint:");

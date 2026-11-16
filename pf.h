@@ -109,18 +109,18 @@ SHORT NAMES
 #define strv_new_from_cstring pf_strv_new_from_cstring
 #undef STRLIT
 #define STRLIT PF_STRLIT
-#undef str_new_alloc
-#define str_new_alloc pf_str_new_alloc
-#undef str_new_alloc_formatted
-#define str_new_alloc_formatted pf_str_new_alloc_formatted
+#undef str_new
+#define str_new pf_str_new
+#undef str_new_formatted
+#define str_new_formatted pf_str_new_formatted
 #undef str_free
 #define str_free pf_str_free
 #undef str_to_cstring
 #define str_to_cstring pf_str_to_cstring
 #undef strv_to_cstring_unsafe
 #define strv_to_cstring_unsafe pf_strv_to_cstring_unsafe
-#undef strv_to_cstring_alloc
-#define strv_to_cstring_alloc pf_strv_to_cstring_alloc
+#undef strv_to_cstring
+#define strv_to_cstring pf_strv_to_cstring
 #undef str_grow
 #define str_grow pf_str_grow
 #undef str_concat
@@ -476,14 +476,14 @@ pf_strv_t pf_strv_new_from_cstring(const char *buf, int len);
 // Allocates on the heap using `allocator`. Call pf_str_free, with the same
 // allocator, to free the result. `allocator` can be left NULL to use the
 // default.
-pf_str_t pf_str_new_alloc(const pf_allocator_t *allocator, size_t len);
+pf_str_t pf_str_new(const pf_allocator_t *allocator, size_t len);
 
 // Create a new formatted pf_str_t.
 // Allocates on the heap using `allocator`. Call pf_str_free, with the same
 // allocator, to free the result. `allocator` can be left NULL to use the
 // default.
-pf_str_t pf_str_new_alloc_formatted(const pf_allocator_t *allocator,
-                                    const char *fmt, ...);
+pf_str_t pf_str_new_formatted(const pf_allocator_t *allocator, const char *fmt,
+                              ...);
 
 // Free a heap-allocated pf_str_t.
 void pf_str_free(const pf_allocator_t *allocator, pf_str_t s);
@@ -500,8 +500,7 @@ const char *pf_strv_to_cstring_unsafe(pf_strv_t s);
 // Allocates on the heap using `allocator`. Call pf_mem_free, with the same
 // allocator, to free the result. `allocator` can be left NULL to use the
 // default.
-const char *pf_strv_to_cstring_alloc(const pf_allocator_t *allocator,
-                                     pf_strv_t s);
+const char *pf_strv_to_cstring(const pf_allocator_t *allocator, pf_strv_t s);
 
 void _pf_str_grow_with_strv(const pf_allocator_t *allocator, pf_str_t *a,
                             pf_strv_t b);
@@ -751,10 +750,11 @@ bool pf_str_iterator_is_done(pf_str_iterator_t it);
          ? (l)[--_PF_LIST_HEADER(l)[0]] \
          : (pf_panic("attempt to pop a pf_list_t that is empty"), (l)[0]))
 
-// Free the heap memory of the provided pf_list_t.
-// `l` MUST be a variable that refers to a pf_list_t, unexpected bad things will
-// happen if it is not!
-// It is safe to pass an empty pf_list_t here.
+// Free the heap memory of the provided pf_list_t, which was allocated with the
+// provided `allocator` (or the default allocator if it is NULL).
+// `l` MUST be a variable that refers to a pf_list_t,
+// unexpected bad things will happen if it is not! It is safe to pass an empty
+// pf_list_t here.
 #define pf_list_deinit(allocator, l)                                          \
     do {                                                                      \
         if ((l) != NULL) {                                                    \
@@ -1024,6 +1024,8 @@ pf_allocator_t pf_arena_allocator(pf_arena_t *arena)
 /// Strings and string views
 /// ----------------
 
+// TODO: make this more robust, it currently just assumes `s` is always valid
+// UTF-8
 rune_t pf_rune_decode(char *s, size_t *len)
 {
     rune_t cp;
@@ -1088,7 +1090,7 @@ pf_strv_t pf_strv_new_from_cstring(const char *buf, int len)
     };
 }
 
-pf_str_t pf_str_new_alloc(const pf_allocator_t *allocator, size_t len)
+pf_str_t pf_str_new(const pf_allocator_t *allocator, size_t len)
 {
     char *buf = pf_mem_alloc(allocator, len + 1);  // for null terminator
     if (!buf) {
@@ -1101,8 +1103,8 @@ pf_str_t pf_str_new_alloc(const pf_allocator_t *allocator, size_t len)
     };
 }
 
-pf_str_t pf_str_new_alloc_formatted(const pf_allocator_t *allocator,
-                                    const char *fmt, ...)
+pf_str_t pf_str_new_formatted(const pf_allocator_t *allocator, const char *fmt,
+                              ...)
 {
     va_list args, args2;
     va_start(args, fmt);
@@ -1141,8 +1143,7 @@ const char *pf_str_to_cstring(pf_str_t s)
 const char *pf_strv_to_cstring_unsafe(pf_strv_t s)
 { return s._s; }
 
-const char *pf_strv_to_cstring_alloc(const pf_allocator_t *allocator,
-                                     pf_strv_t s)
+const char *pf_strv_to_cstring(const pf_allocator_t *allocator, pf_strv_t s)
 {
     char *buf = pf_mem_alloc(allocator, s.len + 1);
     if (!buf) {
