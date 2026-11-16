@@ -139,20 +139,29 @@ void showcase_pf_allocator(void)
 {
     puts("---- PF_ALLOCATOR ----");
 
-    arena_allocator_t arena;
+    // Using the default allocator (malloc with zeroing)
+    const size_t STR_LEN = 16;
+    char *chars = mem_alloc(NULL, STR_LEN + 1);
+    chars[STR_LEN] = '\0';
+    strv_t str = strv_new_from_cstring(chars, STR_LEN);
+    printf("all must be zeroed:\n");
+    for (size_t i = 0; i < STR_LEN; i++) {
+        printf("    it is: %d\n", str_index_byte(str, i));
+    }
+    mem_free(NULL, chars);
+
+    // Using an alternate allocator (arena)
     uint8_t buf[1024];
-    arena_allocator_init(&arena, buf, sizeof buf);
-    allocator_t alloc = pf_arena_allocator(&arena);
+    arena_t arena;
+    arena_init(&arena, buf, sizeof buf);
+    allocator_t alloc = arena_allocator(&arena);
 
     char *mem = mem_alloc(&alloc, 10);
-    strv_t str = STRLIT("henlo");
-    for (size_t i = 0; i < str.len; i++) {
-        mem[i] = str_index_byte(str, i);
-        printf("we have: ");
-        putchar(mem[i]);
-        putchar('\n');
+    strv_t str2 = STRLIT("hellope!");
+    for (size_t i = 0; i < str2.len; i++) {
+        mem[i] = str_index_byte(str2, i);
+        printf("we have: %c\n", mem[i]);
     }
-
     mem_free_all(&alloc);
 }
 

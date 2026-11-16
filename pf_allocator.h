@@ -40,8 +40,8 @@ SHORT NAMES
 #define malloc_allocator pf_malloc_allocator
 #define default_allocator pf_default_allocator
 
-#define arena_allocator_t pf_arena_allocator_t
-#define arena_allocator_init pf_arena_allocator_init
+#define arena_t pf_arena_t
+#define arena_init pf_arena_init
 #define arena_allocator pf_arena_allocator
 #endif
 
@@ -134,29 +134,72 @@ pf_allocator_t pf_default_allocator(void);
 
 /// Arena allocator
 
-// The arena allocator.
-// Allocates on a provided backing buffer, deallocates all at once via
-// `free_all`. Calling `free` is a no-op.
-// The backing buffer must remain alive at least as long as the arena is alive.
+// A memory arena. It is simply a byte buffer, with the current (and previous)
+// offset tracked.
 typedef struct {
     uint8_t *buf;
     size_t size;
     size_t curr;
     size_t prev;
-} pf_arena_allocator_t;
+} pf_arena_t;
 
 // Initialize the arena allocator `arena` with a backing buffer.
-void pf_arena_allocator_init(pf_arena_allocator_t *arena, void *backing_buf,
-                             size_t backing_buf_len);
+// The backing buffer must remain alive as long as the arena is alive.
+void pf_arena_init(pf_arena_t *arena, void *backing_buf,
+                   size_t backing_buf_len);
 
-// Convert the given arena allocator to the generic allocator interface.
-pf_allocator_t pf_arena_allocator(pf_arena_allocator_t *arena);
+// The arena allocator.
+// All allocations made through it are stored in the given arena, and
+// deallocated all at once via `free_all`.
+// Calling `free` with this allocator is a no-op.
+pf_allocator_t pf_arena_allocator(pf_arena_t *arena);
 
 #endif  // PF_ALLOCATOR_H
 
 #ifdef PF_ALLOCATOR_IMPLEMENTATION
 #ifndef _PF_ALLOCATOR_IMPLEMENTED
 #define _PF_ALLOCATOR_IMPLEMENTED
+
+void *pf_mem_alloc(const pf_allocator_t *allocator, size_t len)
+{
+    pf_allocator_t used =
+        allocator != NULL ? *allocator : pf_default_allocator();
+    return used.vtable->alloc(used.ctx, len);
+}
+
+void *pf_mem_remap(const pf_allocator_t *allocator, void *ptr, size_t old_len,
+                   size_t new_len)
+{
+    pf_allocator_t used =
+        allocator != NULL ? *allocator : pf_default_allocator();
+    pf_allocator_remap_fn remap = used.vtable->remap;
+    if (remap != NULL) {
+        return remap(used.ctx, ptr, old_len, new_len);
+    } else {
+        return NULL;
+    }
+}
+
+void pf_mem_free(const pf_allocator_t *allocator, void *ptr)
+{
+    if (ptr == NULL)
+        return;
+    pf_allocator_t used =
+        allocator != NULL ? *allocator : pf_default_allocator();
+    used.vtable->free(used.ctx, ptr);
+}
+
+void pf_mem_free_all(const pf_allocator_t *allocator)
+{
+    pf_allocator_t used =
+        allocator != NULL ? *allocator : pf_default_allocator();
+    pf_allocator_free_all_fn free_all = used.vtable->free_all;
+    if (free_all != NULL) {
+        free_all(used.ctx);
+    } else {
+        // do nothing
+    }
+}
 
 static void *pf_malloc_allocator_alloc(void *ctx, size_t len)
 {
@@ -237,51 +280,9 @@ pf_allocator_t pf_default_allocator(void)
     };
 }
 
-void *pf_mem_alloc(const pf_allocator_t *allocator, size_t len)
+void pf_arena_init(pf_arena_t *arena, void *backing_buf, size_t backing_buf_len)
 {
-    pf_allocator_t used =
-        allocator != NULL ? *allocator : pf_default_allocator();
-    return used.vtable->alloc(used.ctx, len);
-}
-
-void *pf_mem_remap(const pf_allocator_t *allocator, void *ptr, size_t old_len,
-                   size_t new_len)
-{
-    pf_allocator_t used =
-        allocator != NULL ? *allocator : pf_default_allocator();
-    pf_allocator_remap_fn remap = used.vtable->remap;
-    if (remap != NULL) {
-        return remap(used.ctx, ptr, old_len, new_len);
-    } else {
-        return NULL;
-    }
-}
-
-void pf_mem_free(const pf_allocator_t *allocator, void *ptr)
-{
-    if (ptr == NULL)
-        return;
-    pf_allocator_t used =
-        allocator != NULL ? *allocator : pf_default_allocator();
-    used.vtable->free(used.ctx, ptr);
-}
-
-void pf_mem_free_all(const pf_allocator_t *allocator)
-{
-    pf_allocator_t used =
-        allocator != NULL ? *allocator : pf_default_allocator();
-    pf_allocator_free_all_fn free_all = used.vtable->free_all;
-    if (free_all != NULL) {
-        free_all(used.ctx);
-    } else {
-        // do nothing
-    }
-}
-
-void pf_arena_allocator_init(pf_arena_allocator_t *arena, void *backing_buf,
-                             size_t backing_buf_len)
-{
-    *arena = (pf_arena_allocator_t) {
+    *arena = (pf_arena_t) {
         .buf = backing_buf,
         .size = backing_buf_len,
         .curr = 0,
@@ -289,8 +290,8 @@ void pf_arena_allocator_init(pf_arena_allocator_t *arena, void *backing_buf,
     };
 }
 
-static void *pf_arena_allocator_alloc_align(pf_arena_allocator_t *arena,
-                                            size_t size, size_t alignment)
+static void *pf_arena_allocator_alloc_align(pf_arena_t *arena, size_t size,
+                                            size_t alignment)
 {
     // Align current offset forward to specified alignment
     uintptr_t curr = (uintptr_t) arena->buf + (uintptr_t) arena->curr;
@@ -313,7 +314,7 @@ static void *pf_arena_allocator_alloc_align(pf_arena_allocator_t *arena,
 
 static void *pf_arena_allocator_alloc(void *ctx, size_t len)
 {
-    pf_arena_allocator_t *arena = (pf_arena_allocator_t *) ctx;
+    pf_arena_t *arena = (pf_arena_t *) ctx;
     return pf_arena_allocator_alloc_align(arena, len, PF_DEFAULT_ALIGNMENT);
 }
 
@@ -324,9 +325,9 @@ static void pf_arena_allocator_free(void *ctx, void *ptr)
     (void) ptr;
 }
 
-static void *pf_arena_allocator_remap_align(pf_arena_allocator_t *arena,
-                                            void *ptr, size_t old_size,
-                                            size_t new_size, size_t alignment)
+static void *pf_arena_allocator_remap_align(pf_arena_t *arena, void *ptr,
+                                            size_t old_size, size_t new_size,
+                                            size_t alignment)
 {
     uint8_t *old_memory = (uint8_t *) ptr;
 
@@ -375,14 +376,14 @@ static void *pf_arena_allocator_remap_align(pf_arena_allocator_t *arena,
 static void *pf_arena_allocator_remap(void *ctx, void *ptr, size_t old_len,
                                       size_t new_len)
 {
-    pf_arena_allocator_t *arena = (pf_arena_allocator_t *) ctx;
+    pf_arena_t *arena = (pf_arena_t *) ctx;
     return pf_arena_allocator_remap_align(arena, ptr, old_len, new_len,
                                           PF_DEFAULT_ALIGNMENT);
 }
 
 static void pf_arena_allocator_free_all(void *ctx)
 {
-    pf_arena_allocator_t *arena = (pf_arena_allocator_t *) ctx;
+    pf_arena_t *arena = (pf_arena_t *) ctx;
     arena->curr = 0;
     arena->prev = 0;
 }
@@ -394,7 +395,7 @@ static const pf_allocator_vtable_t pf_arena_allocator_vtable = {
     .free_all = pf_arena_allocator_free_all,
 };
 
-pf_allocator_t pf_arena_allocator(pf_arena_allocator_t *arena)
+pf_allocator_t pf_arena_allocator(pf_arena_t *arena)
 {
     return (pf_allocator_t) {
         .ctx = arena,
