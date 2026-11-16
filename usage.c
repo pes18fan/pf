@@ -132,9 +132,6 @@ void showcase_pf_arg(void)
     }
 }
 
-#define PF_ALLOCATOR_IMPLEMENTATION
-#include "pf_allocator.h"
-
 void showcase_pf_allocator(void)
 {
     puts("---- PF_ALLOCATOR ----");
