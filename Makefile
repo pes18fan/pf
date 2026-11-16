@@ -4,6 +4,6 @@ check:
 	echo '#define PF_ARGPARSE_IMPLEMENTATION' >> checker.c
 	echo '#include "pf_argparse.h"' >> checker.c
 	echo 'int main(void) { return 0; }' >> checker.c
-	clang -Wall -Wextra -Wpedantic -Werror checker.c -o checker_bin
-	clang --analyze checker.c
+	clang -std=c11 -pedantic-errors -Wall -Wextra -Wpedantic -Werror checker.c -o checker_bin
+	clang -std=c11 --analyze checker.c
 	rm -f checker.c checker_bin checker.plist
