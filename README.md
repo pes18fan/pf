@@ -12,7 +12,8 @@ Still VERY incomplete!
     - Type generic lists.
 - pf_allocator.h
     - An interface for creating custom allocators.
-    - Provides three implementations of this interface:
+    - Functions that operate on allocators implementing this interface.
+    - Provides three readymade implementations of this interface:
         - An implementation for normal C `malloc`, `realloc` and `free`,
         - An implementation wrapping the above and zeroing out new allocations.
             This is the default.
