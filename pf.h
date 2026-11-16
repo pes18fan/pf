@@ -165,8 +165,8 @@ SHORT NAMES
 #define list_get pf_list_get
 #undef list_pop
 #define list_pop pf_list_pop
-#undef list_free
-#define list_free pf_list_free
+#undef list_deinit
+#define list_deinit pf_list_deinit
 #endif  // PF_NO_SHORT_NAMES
 
 /// ----------------
@@ -473,15 +473,20 @@ pf_strv_t pf_strv_new_from_cstring(const char *buf, int len);
 #define PF_STRLIT(lit) pf_strv_new_from_cstring((lit), sizeof((lit)) - 1)
 
 // Create a new pf_str_t of size `len`.
-// Allocates on the heap! Call pf_free to free the result.
-pf_str_t pf_str_new_alloc(size_t len);
+// Allocates on the heap using `allocator`. Call pf_str_free, with the same
+// allocator, to free the result. `allocator` can be left NULL to use the
+// default.
+pf_str_t pf_str_new_alloc(const pf_allocator_t *allocator, size_t len);
 
 // Create a new formatted pf_str_t.
-// Allocates on the heap! Call pf_str_free to free the result.
-pf_str_t pf_str_new_alloc_formatted(const char *fmt, ...);
+// Allocates on the heap using `allocator`. Call pf_str_free, with the same
+// allocator, to free the result. `allocator` can be left NULL to use the
+// default.
+pf_str_t pf_str_new_alloc_formatted(const pf_allocator_t *allocator,
+                                    const char *fmt, ...);
 
 // Free a heap-allocated pf_str_t.
-void pf_str_free(pf_str_t s);
+void pf_str_free(const pf_allocator_t *allocator, pf_str_t s);
 
 // Get the underlying C-string for the given pf_str_t.
 const char *pf_str_to_cstring(pf_str_t s);
@@ -492,29 +497,41 @@ const char *pf_str_to_cstring(pf_str_t s);
 const char *pf_strv_to_cstring_unsafe(pf_strv_t s);
 
 // Create a properly null-terminated C-string for the given pf_strv_t.
-// Allocates on the heap! Call your relevant allocator's free function to free
-// the result.
-const char *pf_strv_to_cstring_alloc(pf_strv_t s);
+// Allocates on the heap using `allocator`. Call pf_mem_free, with the same
+// allocator, to free the result. `allocator` can be left NULL to use the
+// default.
+const char *pf_strv_to_cstring_alloc(const pf_allocator_t *allocator,
+                                     pf_strv_t s);
 
-void _pf_str_grow_with_strv(pf_str_t *a, pf_strv_t b);
-void _pf_str_grow_with_str(pf_str_t *a, pf_str_t b);
+void _pf_str_grow_with_strv(const pf_allocator_t *allocator, pf_str_t *a,
+                            pf_strv_t b);
+void _pf_str_grow_with_str(const pf_allocator_t *allocator, pf_str_t *a,
+                           pf_str_t b);
 
 // Grow a pf_str_t by concatenating another pf_str_t or pf_strv_t to it,
-// in-place. Allocates on the heap! Reallocates `a` to fit `b`.
-#define pf_str_grow(a, b)                \
+// in-place.
+// Allocates on the heap using `allocator`. Call pf_str_free, with the same
+// allocator, to free the result. `allocator` can be left NULL to use the
+// default.
+// This function reallocates `a` to fit `b`.
+#define pf_str_grow(allocator, a, b)     \
     _Generic((b),                        \
         pf_str_t: _pf_str_grow_with_str, \
-        pf_strv_t: _pf_str_grow_with_strv)((a), (b))
+        pf_strv_t: _pf_str_grow_with_strv)((allocator), (a), (b))
 
-pf_str_t _pf_strv_concat(pf_strv_t a, pf_strv_t b);
-pf_str_t _pf_str_concat(pf_str_t a, pf_str_t b);
+pf_str_t _pf_strv_concat(const pf_allocator_t *allocator, pf_strv_t a,
+                         pf_strv_t b);
+pf_str_t _pf_str_concat(const pf_allocator_t *allocator, pf_str_t a,
+                        pf_str_t b);
 
 // Concatenate two pf_strs or to pf_strvs with each other to produce a new
 // pf_str_t.
-// Allocates on the heap! Call pf_free to free the result.
-#define pf_str_concat(a, b)                                                  \
-    _Generic((a), pf_str_t: _pf_str_concat, pf_strv_t: _pf_strv_concat)((a), \
-                                                                        (b))
+// Allocates on the heap using `allocator`. Call pf_str_free, with the same
+// allocator, to free the result. `allocator` can be left NULL to use the
+// default.
+#define pf_str_concat(allocator, a, b)                                   \
+    _Generic((a), pf_str_t: _pf_str_concat, pf_strv_t: _pf_strv_concat)( \
+        (allocator), (a), (b))
 
 bool _pf_strv_equal(pf_strv_t a, pf_strv_t b);
 bool _pf_str_equal(pf_str_t a, pf_str_t b);
@@ -660,49 +677,56 @@ bool pf_str_iterator_is_done(pf_str_iterator_t it);
 // Add the provided item to the end of the list `l`.
 // `l` MUST be a variable that refers to a pf_list_t, unexpected bad things will
 // happen if it is not!
-// Allocates on the heap if the provided list is empty or if it doesn't have
-// enough capacity for the new item.
-#define pf_list_append(l, item)                                            \
-    do {                                                                   \
-        if ((l) == NULL) {                                                 \
-            void *buf = malloc(_PF_LIST_HEADER_SIZE +                      \
-                               (PF_LIST_INITIAL_CAP * sizeof(*(l))));      \
-            if (!buf) {                                                    \
-                pf_fatal("out of memory!");                                \
-            }                                                              \
-            size_t *header = buf;                                          \
-            header[0] = 0;                                                 \
-            header[1] = PF_LIST_INITIAL_CAP;                               \
-            (l) = (void *) ((uint8_t *) buf + _PF_LIST_HEADER_SIZE);       \
-        }                                                                  \
-        size_t *header = _PF_LIST_HEADER(l);                               \
-        size_t len = header[0];                                            \
-        size_t cap = header[1];                                            \
-        if (len >= cap) {                                                  \
-            if (cap > (SIZE_MAX / 2)) {                                    \
-                pf_panicf(                                                 \
-                    "attempt to grow a pf_list_t over capacity limit of "  \
-                    "%zu items",                                           \
-                    SIZE_MAX);                                             \
-            }                                                              \
-            size_t newcap = cap * 2;                                       \
-            if (newcap > (SIZE_MAX / sizeof(*(l)))) {                      \
-                pf_panicf(                                                 \
-                    "attempt to grow a pf_list_t over byte size limit of " \
-                    "%zu bytes",                                           \
-                    SIZE_MAX);                                             \
-            }                                                              \
-            void *buf = realloc(header, _PF_LIST_HEADER_SIZE +             \
-                                            (newcap * sizeof(*(l))));      \
-            if (!buf) {                                                    \
-                pf_fatal("out of memory!");                                \
-            }                                                              \
-            header = buf;                                                  \
-            header[1] = newcap;                                            \
-            (l) = (void *) ((uint8_t *) buf + _PF_LIST_HEADER_SIZE);       \
-        }                                                                  \
-        l[len] = (item);                                                   \
-        header[0] = len + 1;                                               \
+// Allocates on the heap using `allocator`, if the list is empty or not
+// currently large enough to hold the new item. In the latter case, the memory
+// underlying the list may be moved, hence the unsafety of holding pointers to
+// elements. Call pf_list_free, with the same allocator, to free the list.
+// `allocator` can be left NULL to use the default.
+#define pf_list_append(allocator, l, item)                                    \
+    do {                                                                      \
+        const pf_allocator_t *__alloc = (allocator);                          \
+        if ((l) == NULL) {                                                    \
+            void *__buf = pf_mem_alloc(                                       \
+                __alloc,                                                      \
+                _PF_LIST_HEADER_SIZE + (PF_LIST_INITIAL_CAP * sizeof(*(l)))); \
+            if (!__buf) {                                                     \
+                pf_fatal("out of memory!");                                   \
+            }                                                                 \
+            size_t *__header = __buf;                                         \
+            __header[0] = 0;                                                  \
+            __header[1] = PF_LIST_INITIAL_CAP;                                \
+            (l) = (void *) ((uint8_t *) __buf + _PF_LIST_HEADER_SIZE);        \
+        }                                                                     \
+        size_t *__header = _PF_LIST_HEADER(l);                                \
+        size_t __len = __header[0];                                           \
+        size_t __cap = __header[1];                                           \
+        if (__len >= __cap) {                                                 \
+            if (__cap > (SIZE_MAX / 2)) {                                     \
+                pf_panicf(                                                    \
+                    "attempt to grow a pf_list_t over capacity limit of "     \
+                    "%zu items",                                              \
+                    SIZE_MAX);                                                \
+            }                                                                 \
+            size_t __newcap = __cap * 2;                                      \
+            if (__newcap > (SIZE_MAX / sizeof(*(l)))) {                       \
+                pf_panicf(                                                    \
+                    "attempt to grow a pf_list_t over byte size limit of "    \
+                    "%zu bytes",                                              \
+                    SIZE_MAX);                                                \
+            }                                                                 \
+            void *__buf = pf_mem_remap(                                       \
+                __alloc, __header,                                            \
+                _PF_LIST_HEADER_SIZE + (__cap * sizeof(*(l))),                \
+                _PF_LIST_HEADER_SIZE + (__newcap * sizeof(*(l))));            \
+            if (!__buf) {                                                     \
+                pf_fatal("out of memory!");                                   \
+            }                                                                 \
+            __header = __buf;                                                 \
+            __header[1] = __newcap;                                           \
+            (l) = (void *) ((uint8_t *) __buf + _PF_LIST_HEADER_SIZE);        \
+        }                                                                     \
+        (l)[__len] = (item);                                                  \
+        __header[0] = __len + 1;                                              \
     } while (0)
 
 // Get an element from the list `l` at index `i`.
@@ -731,12 +755,12 @@ bool pf_str_iterator_is_done(pf_str_iterator_t it);
 // `l` MUST be a variable that refers to a pf_list_t, unexpected bad things will
 // happen if it is not!
 // It is safe to pass an empty pf_list_t here.
-#define pf_list_free(l)                                   \
-    do {                                                  \
-        if ((l) != NULL) {                                \
-            free((uint8_t *) (l) - _PF_LIST_HEADER_SIZE); \
-            (l) = NULL;                                   \
-        }                                                 \
+#define pf_list_deinit(allocator, l)                                          \
+    do {                                                                      \
+        if ((l) != NULL) {                                                    \
+            pf_mem_free((allocator), (uint8_t *) (l) - _PF_LIST_HEADER_SIZE); \
+            (l) = NULL;                                                       \
+        }                                                                     \
     } while (0)
 
 #endif  // PF_H
@@ -1064,9 +1088,9 @@ pf_strv_t pf_strv_new_from_cstring(const char *buf, int len)
     };
 }
 
-pf_str_t pf_str_new_alloc(size_t len)
+pf_str_t pf_str_new_alloc(const pf_allocator_t *allocator, size_t len)
 {
-    char *buf = malloc(len + 1);  // for null terminator
+    char *buf = pf_mem_alloc(allocator, len + 1);  // for null terminator
     if (!buf) {
         pf_fatal("out of memory!");
     }
@@ -1077,7 +1101,8 @@ pf_str_t pf_str_new_alloc(size_t len)
     };
 }
 
-pf_str_t pf_str_new_alloc_formatted(const char *fmt, ...)
+pf_str_t pf_str_new_alloc_formatted(const pf_allocator_t *allocator,
+                                    const char *fmt, ...)
 {
     va_list args, args2;
     va_start(args, fmt);
@@ -1090,7 +1115,7 @@ pf_str_t pf_str_new_alloc_formatted(const char *fmt, ...)
         pf_panic("failed to format string\n");
     }
 
-    char *buf = malloc(len + 1);
+    char *buf = pf_mem_alloc(allocator, len + 1);
     if (!buf) {
         va_end(args2);
         pf_fatal("out of memory!");
@@ -1102,11 +1127,11 @@ pf_str_t pf_str_new_alloc_formatted(const char *fmt, ...)
     return (pf_str_t) { ._s = buf, .len = len };
 }
 
-void pf_str_free(pf_str_t s)
+void pf_str_free(const pf_allocator_t *allocator, pf_str_t s)
 {
     if (s._s == NULL)
         return;
-    free(s._s);
+    pf_mem_free(allocator, s._s);
     s._s = NULL;
 }
 
@@ -1116,9 +1141,10 @@ const char *pf_str_to_cstring(pf_str_t s)
 const char *pf_strv_to_cstring_unsafe(pf_strv_t s)
 { return s._s; }
 
-const char *pf_strv_to_cstring_alloc(pf_strv_t s)
+const char *pf_strv_to_cstring_alloc(const pf_allocator_t *allocator,
+                                     pf_strv_t s)
 {
-    char *buf = malloc(s.len + 1);
+    char *buf = pf_mem_alloc(allocator, s.len + 1);
     if (!buf) {
         pf_fatal("out of memory!");
     }
@@ -1129,7 +1155,8 @@ const char *pf_strv_to_cstring_alloc(pf_strv_t s)
 }
 
 // TODO: fix use after free when this is called with `b` aliasing `a`
-void _pf_str_grow_with_strv(pf_str_t *a, pf_strv_t b)
+void _pf_str_grow_with_strv(const pf_allocator_t *allocator, pf_str_t *a,
+                            pf_strv_t b)
 {
     if (a->len > SIZE_MAX - b.len - 1) {
         pf_panicf("attempt to grow a pf_str_t over size limit of %zu bytes",
@@ -1137,7 +1164,7 @@ void _pf_str_grow_with_strv(pf_str_t *a, pf_strv_t b)
     }
 
     size_t newlen = a->len + b.len;
-    char *new = realloc(a->_s, newlen + 1);
+    char *new = pf_mem_remap(allocator, a->_s, a->len + 1, newlen + 1);
     if (!new) {
         pf_fatal("out of memory!");
     }
@@ -1148,10 +1175,12 @@ void _pf_str_grow_with_strv(pf_str_t *a, pf_strv_t b)
     a->len = newlen;
 }
 
-void _pf_str_grow_with_str(pf_str_t *a, pf_str_t b)
-{ _pf_str_grow_with_strv(a, PF_STRTOVIEW(b)); }
+void _pf_str_grow_with_str(const pf_allocator_t *allocator, pf_str_t *a,
+                           pf_str_t b)
+{ _pf_str_grow_with_strv(allocator, a, PF_STRTOVIEW(b)); }
 
-pf_str_t _pf_strv_concat(pf_strv_t a, pf_strv_t b)
+pf_str_t _pf_strv_concat(const pf_allocator_t *allocator, pf_strv_t a,
+                         pf_strv_t b)
 {
     if (a.len > SIZE_MAX - b.len - 1) {
         pf_panicf("attempt to create a concatenated pf_str_t over "
@@ -1160,7 +1189,7 @@ pf_str_t _pf_strv_concat(pf_strv_t a, pf_strv_t b)
     }
 
     size_t len = a.len + b.len;
-    char *buf = malloc(len + 1);
+    char *buf = pf_mem_alloc(allocator, len + 1);
     if (!buf) {
         pf_fatal("out of memory!");
     }
@@ -1171,8 +1200,8 @@ pf_str_t _pf_strv_concat(pf_strv_t a, pf_strv_t b)
     return (pf_str_t) { ._s = buf, .len = len };
 }
 
-pf_str_t _pf_str_concat(pf_str_t a, pf_str_t b)
-{ return _pf_strv_concat(PF_STRTOVIEW(a), PF_STRTOVIEW(b)); }
+pf_str_t _pf_str_concat(const pf_allocator_t *allocator, pf_str_t a, pf_str_t b)
+{ return _pf_strv_concat(allocator, PF_STRTOVIEW(a), PF_STRTOVIEW(b)); }
 
 bool _pf_strv_equal(pf_strv_t a, pf_strv_t b)
 {

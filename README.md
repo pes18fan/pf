@@ -18,7 +18,8 @@ Still VERY incomplete!
                 buffer.
     - Strings (`str_t`) and string views (`strv_t`).
         - Various functions to manipulate strings.
+        - Uses the `allocator_t` interface.
     - Type generic lists, `list_t`.
-- pf_allocator.h
+        - Uses the `allocator_t` interface.
 - pf_argparse.h
     - A CLI argument parser.
